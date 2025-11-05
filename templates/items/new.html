@@ -10,30 +10,36 @@
         <div class="row">
             <div class="col-md-6">
                 <div class="form-group">
-                    <label for="category_id">Category *</label>
-                    <select name="category_id" id="category_id" class="form-control" required>
-                        <option value="">Select Category</option>
+                    <label for="category">Category *</label>
+                    <input type="text" name="category" id="category" class="form-control" required list="category-list" placeholder="Type or select category">
+                    <datalist id="category-list">
                         {% for category in categories %}
-                        <option value="{{ category.id }}">{{ category.name }} ({{ category.code }})</option>
+                        <option value="{{ category.name }}">
                         {% endfor %}
-                    </select>
+                    </datalist>
+                    <small class="form-text text-muted">Type a new category or select from existing</small>
                 </div>
 
                 <div class="form-group">
-                    <label for="type_id">Type *</label>
-                    <select name="type_id" id="type_id" class="form-control" required>
-                        <option value="">Select Type</option>
-                    </select>
+                    <label for="type">Type *</label>
+                    <input type="text" name="type" id="type" class="form-control" required list="type-list" placeholder="Type or select type">
+                    <datalist id="type-list">
+                        {% for type in types %}
+                        <option value="{{ type.name }}">
+                        {% endfor %}
+                    </datalist>
+                    <small class="form-text text-muted">Type a new type or select from existing</small>
                 </div>
 
                 <div class="form-group">
-                    <label for="material_id">Material</label>
-                    <select name="material_id" id="material_id" class="form-control">
-                        <option value="">None</option>
+                    <label for="material">Material</label>
+                    <input type="text" name="material" id="material" class="form-control" list="material-list" placeholder="Type or select material (optional)">
+                    <datalist id="material-list">
                         {% for material in materials %}
-                        <option value="{{ material.id }}">{{ material.name }} ({{ material.code }})</option>
+                        <option value="{{ material.name }}">
                         {% endfor %}
-                    </select>
+                    </datalist>
+                    <small class="form-text text-muted">Optional - type a new material or select from existing</small>
                 </div>
 
                 <div class="form-group">
@@ -54,8 +60,19 @@
 
             <div class="col-md-6">
                 <div class="form-group">
-                    <label for="unit_of_measure">Unit of Measure</label>
-                    <input type="text" name="unit_of_measure" id="unit_of_measure" class="form-control" value="PCS">
+                    <label for="unit_of_measure">Unit of Measure *</label>
+                    <select name="unit_of_measure" id="unit_of_measure" class="form-control" required>
+                        <option value="PCS">Pieces (PCS)</option>
+                        <option value="KG">Kilograms (KG)</option>
+                        <option value="G">Grams (G)</option>
+                        <option value="L">Liters (L)</option>
+                        <option value="M">Meters (M)</option>
+                        <option value="M2">Square Meters (M2)</option>
+                        <option value="M3">Cubic Meters (M3)</option>
+                        <option value="BOX">Box (BOX)</option>
+                        <option value="SET">Set (SET)</option>
+                        <option value="PAIR">Pair (PAIR)</option>
+                    </select>
                 </div>
 
                 <h4>Dimensions (for CNC parts)</h4>
@@ -113,24 +130,4 @@
         </div>
     </form>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-$(document).ready(function() {
-    $('#category_id').change(function() {
-        var categoryId = $(this).val();
-        if (categoryId) {
-            $.get('/items/api/types/' + categoryId, function(data) {
-                var typeSelect = $('#type_id');
-                typeSelect.empty();
-                typeSelect.append('<option value="">Select Type</option>');
-                $.each(data, function(index, type) {
-                    typeSelect.append('<option value="' + type.id + '">' + type.name + ' (' + type.code + ')</option>');
-                });
-            });
-        }
-    });
-});
-</script>
 {% endblock %}

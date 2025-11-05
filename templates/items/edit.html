@@ -25,8 +25,19 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="unit_of_measure">Unit of Measure</label>
-                    <input type="text" name="unit_of_measure" id="unit_of_measure" class="form-control" value="{{ item.unit_of_measure }}">
+                    <label for="unit_of_measure">Unit of Measure *</label>
+                    <select name="unit_of_measure" id="unit_of_measure" class="form-control" required>
+                        <option value="PCS" {% if item.unit_of_measure == 'PCS' %}selected{% endif %}>Pieces (PCS)</option>
+                        <option value="KG" {% if item.unit_of_measure == 'KG' %}selected{% endif %}>Kilograms (KG)</option>
+                        <option value="G" {% if item.unit_of_measure == 'G' %}selected{% endif %}>Grams (G)</option>
+                        <option value="L" {% if item.unit_of_measure == 'L' %}selected{% endif %}>Liters (L)</option>
+                        <option value="M" {% if item.unit_of_measure == 'M' %}selected{% endif %}>Meters (M)</option>
+                        <option value="M2" {% if item.unit_of_measure == 'M2' %}selected{% endif %}>Square Meters (M2)</option>
+                        <option value="M3" {% if item.unit_of_measure == 'M3' %}selected{% endif %}>Cubic Meters (M3)</option>
+                        <option value="BOX" {% if item.unit_of_measure == 'BOX' %}selected{% endif %}>Box (BOX)</option>
+                        <option value="SET" {% if item.unit_of_measure == 'SET' %}selected{% endif %}>Set (SET)</option>
+                        <option value="PAIR" {% if item.unit_of_measure == 'PAIR' %}selected{% endif %}>Pair (PAIR)</option>
+                    </select>
                 </div>
             </div>
 
