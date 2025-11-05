@@ -1,10 +1,15 @@
 {% extends "base.html" %}
+{% from "_filter_component.html" import render_filters %}
+
 {% block title %}Receipts{% endblock %}
 {% block content %}
 <h1>Receipts</h1>
 <div class="action-links">
     <a href="{{ url_for('receipts.new') }}" class="btn btn-primary">New Receipt</a>
 </div>
+
+{{ render_filters(filter_config, url_for('receipts.index'), current_filters) }}
+
 <div class="section">
     <table class="data-table">
         <thead>

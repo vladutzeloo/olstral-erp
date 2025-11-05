@@ -6,14 +6,69 @@ from openpyxl import Workbook
 import io
 from extensions import db
 from models import Item, Category, ItemType, Material, MaterialSeries, InventoryLocation, Location
+from filter_utils import TableFilter
 
 items_bp = Blueprint('items', __name__)
 
 @items_bp.route('/')
 @login_required
 def index():
-    items = Item.query.filter_by(is_active=True).all()
-    return render_template('items/index.html', items=items)
+    # Initialize filter
+    table_filter = TableFilter(Item, request.args)
+
+    # Configure filters
+    table_filter.add_filter('category_id', operator='eq')
+    table_filter.add_filter('type_id', operator='eq')
+    table_filter.add_filter('material_id', operator='eq')
+    table_filter.add_filter('is_active', operator='eq')
+    table_filter.add_search(['sku', 'name', 'description', 'neo_code'])
+
+    # Apply filters
+    query = Item.query
+    query = table_filter.apply(query)
+    items = query.order_by(Item.sku).all()
+
+    # Get options for dropdowns
+    categories = Category.query.order_by(Category.name).all()
+    types = ItemType.query.order_by(ItemType.name).all()
+    materials = Material.query.order_by(Material.name).all()
+
+    # Filter config
+    filter_config = {
+        'search_fields': True,
+        'selects': [
+            {
+                'name': 'category_id',
+                'label': 'Category',
+                'options': [{'value': c.id, 'label': c.name} for c in categories]
+            },
+            {
+                'name': 'type_id',
+                'label': 'Type',
+                'options': [{'value': t.id, 'label': t.name} for t in types]
+            },
+            {
+                'name': 'material_id',
+                'label': 'Material',
+                'options': [{'value': m.id, 'label': m.name} for m in materials]
+            },
+            {
+                'name': 'is_active',
+                'label': 'Status',
+                'options': [
+                    {'value': '1', 'label': 'Active'},
+                    {'value': '0', 'label': 'Inactive'},
+                ]
+            }
+        ],
+        'date_ranges': [],
+        'summary': table_filter.get_filter_summary()
+    }
+
+    return render_template('items/index.html',
+                         items=items,
+                         filter_config=filter_config,
+                         current_filters=table_filter.get_active_filters())
 
 @items_bp.route('/new', methods=['GET', 'POST'])
 @login_required

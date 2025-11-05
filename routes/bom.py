@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-from models import db, BillOfMaterials, BOMComponent, Item
+from models import db, BillOfMaterials, BOMComponent, Item, User
 from datetime import datetime
+from filter_utils import TableFilter
 
 bom_bp = Blueprint('bom', __name__)
 
@@ -9,8 +10,58 @@ bom_bp = Blueprint('bom', __name__)
 @login_required
 def index():
     """List all BOMs"""
-    boms = BillOfMaterials.query.order_by(BillOfMaterials.created_at.desc()).all()
-    return render_template('bom/index.html', boms=boms)
+    # Initialize filter
+    table_filter = TableFilter(BillOfMaterials, request.args)
+
+    # Add filters
+    table_filter.add_filter('finished_item_id', operator='eq')
+    table_filter.add_filter('status', operator='eq')
+    table_filter.add_filter('created_by', operator='eq')
+    table_filter.add_date_filter('created_at')
+    table_filter.add_date_filter('activated_at')
+    table_filter.add_search(['bom_number', 'version', 'notes'])
+
+    # Apply filters
+    query = BillOfMaterials.query
+    query = table_filter.apply(query)
+    boms = query.order_by(BillOfMaterials.created_at.desc()).all()
+
+    # Filter configuration for template
+    filter_config = {
+        'search_fields': True,
+        'selects': [
+            {
+                'name': 'finished_item_id',
+                'label': 'Finished Item',
+                'options': [{'value': item.id, 'label': f"{item.sku} - {item.name}"}
+                           for item in Item.query.filter_by(is_active=True).order_by(Item.sku).all()]
+            },
+            {
+                'name': 'status',
+                'label': 'Status',
+                'options': [
+                    {'value': 'draft', 'label': 'Draft'},
+                    {'value': 'active', 'label': 'Active'},
+                    {'value': 'obsolete', 'label': 'Obsolete'}
+                ]
+            },
+            {
+                'name': 'created_by',
+                'label': 'Created By',
+                'options': [{'value': u.id, 'label': u.username} for u in User.query.order_by(User.username).all()]
+            }
+        ],
+        'date_ranges': [
+            {'name': 'created_at', 'label': 'Created Date'},
+            {'name': 'activated_at', 'label': 'Activated Date'}
+        ],
+        'summary': table_filter.get_filter_summary()
+    }
+
+    return render_template('bom/index.html',
+                         boms=boms,
+                         filter_config=filter_config,
+                         current_filters=table_filter.get_active_filters())
 
 @bom_bp.route('/new', methods=['GET', 'POST'])
 @login_required

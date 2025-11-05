@@ -2,15 +2,77 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from datetime import datetime
 from extensions import db
-from models import PurchaseOrder, PurchaseOrderItem, Supplier, Item
+from models import PurchaseOrder, PurchaseOrderItem, Supplier, Item, User
+from filter_utils import TableFilter
 
 po_bp = Blueprint('purchase_orders', __name__)
 
 @po_bp.route('/')
 @login_required
 def index():
-    pos = PurchaseOrder.query.order_by(PurchaseOrder.created_at.desc()).all()
-    return render_template('purchase_orders/index.html', pos=pos)
+    # Initialize filter
+    table_filter = TableFilter(PurchaseOrder, request.args)
+
+    # Add filters
+    table_filter.add_filter('supplier_id', operator='eq')
+    table_filter.add_filter('po_type', operator='eq')
+    table_filter.add_filter('status', operator='eq')
+    table_filter.add_filter('created_by', operator='eq')
+    table_filter.add_date_filter('order_date')
+    table_filter.add_date_filter('expected_date')
+    table_filter.add_search(['po_number', 'notes'])
+
+    # Apply filters
+    query = PurchaseOrder.query
+    query = table_filter.apply(query)
+    pos = query.order_by(PurchaseOrder.created_at.desc()).all()
+
+    # Filter configuration for template
+    filter_config = {
+        'search_fields': True,
+        'selects': [
+            {
+                'name': 'supplier_id',
+                'label': 'Supplier',
+                'options': [{'value': s.id, 'label': s.name} for s in Supplier.query.order_by(Supplier.name).all()]
+            },
+            {
+                'name': 'po_type',
+                'label': 'Type',
+                'options': [
+                    {'value': 'items', 'label': 'Items'},
+                    {'value': 'materials', 'label': 'Materials'},
+                    {'value': 'external_process', 'label': 'External Process'}
+                ]
+            },
+            {
+                'name': 'status',
+                'label': 'Status',
+                'options': [
+                    {'value': 'draft', 'label': 'Draft'},
+                    {'value': 'submitted', 'label': 'Submitted'},
+                    {'value': 'partial', 'label': 'Partial'},
+                    {'value': 'received', 'label': 'Received'},
+                    {'value': 'cancelled', 'label': 'Cancelled'}
+                ]
+            },
+            {
+                'name': 'created_by',
+                'label': 'Created By',
+                'options': [{'value': u.id, 'label': u.username} for u in User.query.order_by(User.username).all()]
+            }
+        ],
+        'date_ranges': [
+            {'name': 'order_date', 'label': 'Order Date'},
+            {'name': 'expected_date', 'label': 'Expected Date'}
+        ],
+        'summary': table_filter.get_filter_summary()
+    }
+
+    return render_template('purchase_orders/index.html',
+                         pos=pos,
+                         filter_config=filter_config,
+                         current_filters=table_filter.get_active_filters())
 
 @po_bp.route('/new', methods=['GET', 'POST'])
 @login_required
@@ -93,8 +155,51 @@ def cancel(id):
 @po_bp.route('/suppliers')
 @login_required
 def suppliers():
-    suppliers = Supplier.query.all()
-    return render_template('purchase_orders/suppliers.html', suppliers=suppliers)
+    # Initialize filter
+    table_filter = TableFilter(Supplier, request.args)
+
+    # Add filters
+    table_filter.add_filter('is_active', operator='eq')
+    table_filter.add_filter('is_external_processor', operator='eq')
+    table_filter.add_date_filter('created_at')
+    table_filter.add_search(['code', 'name', 'contact_person', 'email', 'phone'])
+
+    # Apply filters
+    query = Supplier.query
+    query = table_filter.apply(query)
+    suppliers = query.order_by(Supplier.name).all()
+
+    # Filter configuration for template
+    filter_config = {
+        'search_fields': True,
+        'selects': [
+            {
+                'name': 'is_active',
+                'label': 'Status',
+                'options': [
+                    {'value': '1', 'label': 'Active'},
+                    {'value': '0', 'label': 'Inactive'}
+                ]
+            },
+            {
+                'name': 'is_external_processor',
+                'label': 'Type',
+                'options': [
+                    {'value': '1', 'label': 'External Processor'},
+                    {'value': '0', 'label': 'Regular Supplier'}
+                ]
+            }
+        ],
+        'date_ranges': [
+            {'name': 'created_at', 'label': 'Created Date'}
+        ],
+        'summary': table_filter.get_filter_summary()
+    }
+
+    return render_template('purchase_orders/suppliers.html',
+                         suppliers=suppliers,
+                         filter_config=filter_config,
+                         current_filters=table_filter.get_active_filters())
 
 @po_bp.route('/suppliers/new', methods=['GET', 'POST'])
 @login_required

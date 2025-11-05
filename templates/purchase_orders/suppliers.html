@@ -1,10 +1,15 @@
 {% extends "base.html" %}
+{% from "_filter_component.html" import render_filters %}
+
 {% block title %}Suppliers{% endblock %}
 {% block content %}
 <h1>Suppliers</h1>
 <div class="action-links">
     <a href="{{ url_for('purchase_orders.new_supplier') }}" class="btn btn-primary">New Supplier</a>
 </div>
+
+{{ render_filters(filter_config, url_for('purchase_orders.suppliers'), current_filters) }}
+
 <div class="section">
     <table class="data-table">
         <thead>

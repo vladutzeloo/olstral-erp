@@ -2,16 +2,65 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from datetime import datetime
 from extensions import db
-from models import (Receipt, ReceiptItem, PurchaseOrder, PurchaseOrderItem, Location, Item, 
-                    InventoryLocation, InventoryTransaction, ExternalProcess, Scrap, Supplier)
+from models import (Receipt, ReceiptItem, PurchaseOrder, PurchaseOrderItem, Location, Item,
+                    InventoryLocation, InventoryTransaction, ExternalProcess, Scrap, Supplier, User)
+from filter_utils import TableFilter
 
 receipts_bp = Blueprint('receipts', __name__)
 
 @receipts_bp.route('/')
 @login_required
 def index():
-    receipts = Receipt.query.order_by(Receipt.created_at.desc()).all()
-    return render_template('receipts/index.html', receipts=receipts)
+    # Initialize filter
+    table_filter = TableFilter(Receipt, request.args)
+
+    # Add filters
+    table_filter.add_filter('source_type', operator='eq')
+    table_filter.add_filter('location_id', operator='eq')
+    table_filter.add_filter('received_by', operator='eq')
+    table_filter.add_date_filter('received_date')
+    table_filter.add_search(['receipt_number', 'internal_order_number', 'notes'])
+
+    # Apply filters
+    query = Receipt.query
+    query = table_filter.apply(query)
+    receipts = query.order_by(Receipt.created_at.desc()).all()
+
+    # Filter configuration for template
+    filter_config = {
+        'search_fields': True,
+        'selects': [
+            {
+                'name': 'source_type',
+                'label': 'Source Type',
+                'options': [
+                    {'value': 'purchase_order', 'label': 'Purchase Order'},
+                    {'value': 'production', 'label': 'Production'},
+                    {'value': 'external_process', 'label': 'External Process'}
+                ]
+            },
+            {
+                'name': 'location_id',
+                'label': 'Location',
+                'options': [{'value': loc.id, 'label': f"{loc.code} - {loc.name}"}
+                           for loc in Location.query.filter_by(is_active=True).order_by(Location.code).all()]
+            },
+            {
+                'name': 'received_by',
+                'label': 'Received By',
+                'options': [{'value': u.id, 'label': u.username} for u in User.query.order_by(User.username).all()]
+            }
+        ],
+        'date_ranges': [
+            {'name': 'received_date', 'label': 'Received Date'}
+        ],
+        'summary': table_filter.get_filter_summary()
+    }
+
+    return render_template('receipts/index.html',
+                         receipts=receipts,
+                         filter_config=filter_config,
+                         current_filters=table_filter.get_active_filters())
 
 @receipts_bp.route('/new', methods=['GET', 'POST'])
 @login_required

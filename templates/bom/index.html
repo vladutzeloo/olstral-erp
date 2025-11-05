@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_filter_component.html" import render_filters %}
 
 {% block title %}Bill of Materials - Inventory ERP{% endblock %}
 
@@ -9,6 +10,8 @@
         <a href="{{ url_for('bom.new') }}" class="btn btn-primary">New BOM</a>
     </div>
 </div>
+
+{{ render_filters(filter_config, url_for('bom.index'), current_filters) }}
 
 <div class="card">
     <table class="data-table">

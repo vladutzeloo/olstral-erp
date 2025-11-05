@@ -2,15 +2,86 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 from extensions import db
-from models import ExternalProcess, Supplier, Item, InventoryLocation, InventoryTransaction, Location
+from models import ExternalProcess, Supplier, Item, InventoryLocation, InventoryTransaction, Location, User
+from filter_utils import TableFilter
 
 external_processes_bp = Blueprint('external_processes', __name__)
 
 @external_processes_bp.route('/')
 @login_required
 def index():
-    processes = ExternalProcess.query.order_by(ExternalProcess.created_at.desc()).all()
-    return render_template('external_processes/index.html', processes=processes)
+    # Initialize filter
+    table_filter = TableFilter(ExternalProcess, request.args)
+
+    # Add filters
+    table_filter.add_filter('supplier_id', operator='eq')
+    table_filter.add_filter('process_type', operator='eq')
+    table_filter.add_filter('status', operator='eq')
+    table_filter.add_filter('creates_new_sku', operator='eq')
+    table_filter.add_filter('created_by', operator='eq')
+    table_filter.add_date_filter('sent_date')
+    table_filter.add_date_filter('expected_return')
+    table_filter.add_search(['process_number', 'process_result', 'notes'])
+
+    # Apply filters
+    query = ExternalProcess.query
+    query = table_filter.apply(query)
+    processes = query.order_by(ExternalProcess.created_at.desc()).all()
+
+    # Get unique process types for filter
+    process_types = db.session.query(ExternalProcess.process_type).distinct().all()
+    process_type_options = [{'value': pt[0], 'label': pt[0]} for pt in process_types if pt[0]]
+
+    # Filter configuration for template
+    filter_config = {
+        'search_fields': True,
+        'selects': [
+            {
+                'name': 'supplier_id',
+                'label': 'Supplier',
+                'options': [{'value': s.id, 'label': s.name}
+                           for s in Supplier.query.filter_by(is_external_processor=True).order_by(Supplier.name).all()]
+            },
+            {
+                'name': 'process_type',
+                'label': 'Process Type',
+                'options': process_type_options
+            },
+            {
+                'name': 'status',
+                'label': 'Status',
+                'options': [
+                    {'value': 'sent', 'label': 'Sent'},
+                    {'value': 'in_progress', 'label': 'In Progress'},
+                    {'value': 'completed', 'label': 'Completed'},
+                    {'value': 'cancelled', 'label': 'Cancelled'}
+                ]
+            },
+            {
+                'name': 'creates_new_sku',
+                'label': 'Transforms SKU',
+                'options': [
+                    {'value': '1', 'label': 'Yes - Creates New SKU'},
+                    {'value': '0', 'label': 'No - Same SKU'}
+                ]
+            },
+            {
+                'name': 'created_by',
+                'label': 'Created By',
+                'options': [{'value': u.id, 'label': u.username} for u in User.query.order_by(User.username).all()]
+            }
+        ],
+        'date_ranges': [
+            {'name': 'sent_date', 'label': 'Sent Date'},
+            {'name': 'expected_return', 'label': 'Expected Return'}
+        ],
+        'summary': table_filter.get_filter_summary()
+    }
+
+    return render_template('external_processes/index.html',
+                         processes=processes,
+                         filter_config=filter_config,
+                         current_filters=table_filter.get_active_filters())
 
 @external_processes_bp.route('/new', methods=['GET', 'POST'])
 @login_required

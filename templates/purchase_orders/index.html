@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_filter_component.html" import render_filters %}
 
 {% block title %}Purchase Orders - Inventory ERP{% endblock %}
 
@@ -9,6 +10,8 @@
     <a href="{{ url_for('purchase_orders.new') }}" class="btn btn-primary">New Purchase Order</a>
     <a href="{{ url_for('purchase_orders.suppliers') }}" class="btn btn-secondary">Manage Suppliers</a>
 </div>
+
+{{ render_filters(filter_config, url_for('purchase_orders.index'), current_filters) }}
 
 <div class="section">
     <table class="data-table">

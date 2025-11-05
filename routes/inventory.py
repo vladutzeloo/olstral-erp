@@ -1,15 +1,52 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from extensions import db
-from models import InventoryLocation, Location, Item, InventoryTransaction
+from models import InventoryLocation, Location, Item, InventoryTransaction, ItemType, ItemCategory
+from filter_utils import TableFilter
 
 inventory_bp = Blueprint('inventory', __name__)
 
 @inventory_bp.route('/')
 @login_required
 def index():
-    inventory = InventoryLocation.query.join(Item).join(Location).all()
-    return render_template('inventory/index.html', inventory=inventory)
+    # Initialize filter
+    table_filter = TableFilter(InventoryLocation, request.args)
+
+    # Add filters
+    table_filter.add_filter('item_id', operator='eq')
+    table_filter.add_filter('location_id', operator='eq')
+    table_filter.add_search(['bin_location'])
+
+    # Apply filters
+    query = InventoryLocation.query.join(Item).join(Location)
+    query = table_filter.apply(query)
+    inventory = query.all()
+
+    # Filter configuration for template
+    filter_config = {
+        'search_fields': True,
+        'selects': [
+            {
+                'name': 'item_id',
+                'label': 'Item',
+                'options': [{'value': item.id, 'label': f"{item.sku} - {item.name}"}
+                           for item in Item.query.filter_by(is_active=True).order_by(Item.sku).all()]
+            },
+            {
+                'name': 'location_id',
+                'label': 'Location',
+                'options': [{'value': loc.id, 'label': f"{loc.code} - {loc.name}"}
+                           for loc in Location.query.filter_by(is_active=True).order_by(Location.code).all()]
+            }
+        ],
+        'date_ranges': [],
+        'summary': table_filter.get_filter_summary()
+    }
+
+    return render_template('inventory/index.html',
+                         inventory=inventory,
+                         filter_config=filter_config,
+                         current_filters=table_filter.get_active_filters())
 
 @inventory_bp.route('/locations')
 @login_required
