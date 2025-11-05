@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Shipments{% endblock %}
+{% block content %}
+<h1>Shipments</h1>
+<div class="action-links">
+    <a href="{{ url_for('shipments.new') }}" class="btn btn-primary">New Shipment</a>
+</div>
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr><th>Shipment #</th><th>Customer</th><th>From Location</th><th>Ship Date</th><th>Tracking</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for shipment in shipments %}
+            <tr>
+                <td><a href="{{ url_for('shipments.view', id=shipment.id) }}">{{ shipment.shipment_number }}</a></td>
+                <td>{{ shipment.customer_name }}</td>
+                <td>{{ shipment.from_location.name }}</td>
+                <td>{{ shipment.ship_date.strftime('%Y-%m-%d') }}</td>
+                <td>{{ shipment.tracking_number or '-' }}</td>
+                <td><span class="badge badge-{{ shipment.status }}">{{ shipment.status }}</span></td>
+                <td><a href="{{ url_for('shipments.view', id=shipment.id) }}" class="btn btn-sm btn-primary">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,485 @@
+{% extends "base.html" %}
+{% block title %}New External Process{% endblock %}
+{% block content %}
+<h1>Create New External Process</h1>
+<div class="section">
+    <div class="alert alert-info">
+        <strong>What is an External Process?</strong><br>
+        Send items to an external supplier for processing (plating, heat treatment, painting, etc.). 
+        Items can be returned as the same SKU or transformed into a different SKU.
+    </div>
+    
+    <form method="POST" id="externalProcessForm">
+        <!-- Step 1: Select Supplier -->
+        <div class="form-section">
+            <h3>Step 1: External Processor</h3>
+            <div class="form-group">
+                <label>Supplier (External Processor) *</label>
+                <select name="supplier_id" id="supplier_id" class="form-control" required>
+                    <option value="">Select Supplier</option>
+                    {% if external_processors %}
+                    <optgroup label="Registered External Processors">
+                        {% for supplier in external_processors %}
+                        <option value="{{ supplier.id }}" 
+                                data-lead-time="{{ supplier.typical_lead_time_days or '' }}"
+                                data-processes="{{ supplier.typical_process_types or '' }}"
+                                data-shipping="{{ supplier.shipping_account or '' }}"
+                                data-instructions="{{ supplier.pickup_instructions or '' }}">
+                            {{ supplier.name }}
+                            {% if supplier.typical_lead_time_days %}(~{{ supplier.typical_lead_time_days }} days){% endif %}
+                        </option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endif %}
+                    <optgroup label="Other Suppliers">
+                        {% for supplier in suppliers if not supplier.is_external_processor %}
+                        <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                        {% endfor %}
+                    </optgroup>
+                </select>
+                <small class="text-muted">Suppliers marked as External Processors have pre-configured process types and lead times</small>
+            </div>
+
+            <div id="supplier-info" style="display:none;" class="alert alert-secondary mt-2"></div>
+        </div>
+
+        <!-- Step 2: Item to Send -->
+        <div class="form-section">
+            <h3>Step 2: Item to Send</h3>
+            <div class="form-group">
+                <label>From Location *</label>
+                <select name="location_id" id="location_id" class="form-control" required>
+                    <option value="">Select Location</option>
+                    {% for location in locations %}
+                    <option value="{{ location.id }}">{{ location.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Item to Send *</label>
+                <input type="hidden" name="item_id" id="item_id" required>
+                <input type="text" id="item_search" class="form-control" 
+                       placeholder="Type SKU or name to search..." 
+                       autocomplete="off" required>
+                <div id="search-results" class="search-results"></div>
+                <small class="text-muted" id="available-qty">Select location first</small>
+            </div>
+
+            <div class="form-group">
+                <label>Quantity to Send *</label>
+                <input type="number" name="quantity_sent" id="quantity_sent" class="form-control" 
+                       placeholder="Quantity" min="1" required>
+                <small class="text-muted" id="qty-warning"></small>
+            </div>
+        </div>
+
+        <!-- Step 3: Process Details -->
+        <div class="form-section">
+            <h3>Step 3: Process Details</h3>
+            <div class="form-group">
+                <label>Process Type *</label>
+                <input type="text" name="process_type" id="process_type" class="form-control" 
+                       placeholder="e.g., Plating, Heat Treatment, Painting" 
+                       list="process-types" required>
+                <datalist id="process-types"></datalist>
+                <small class="text-muted">What processing will be done?</small>
+            </div>
+
+            <div class="form-group">
+                <label>Process Result/Specification</label>
+                <input type="text" name="process_result" id="process_result" class="form-control" 
+                       placeholder="e.g., Zinc Plated, Red Painted, Hardened">
+                <small class="text-muted">Describe the expected result (e.g., "Painted Red", "Zinc Plated")</small>
+            </div>
+        </div>
+
+        <!-- Step 4: Item Transformation -->
+        <div class="form-section">
+            <h3>Step 4: What Will Be Returned?</h3>
+            <div class="form-group">
+                <label>Does this process create a different SKU?</label>
+                <div>
+                    <label class="radio-inline">
+                        <input type="radio" name="creates_new_sku" value="no" checked> 
+                        No - Same item returned (just processed)
+                    </label>
+                    <label class="radio-inline ml-3">
+                        <input type="radio" name="creates_new_sku" value="yes"> 
+                        Yes - Different SKU after processing
+                    </label>
+                </div>
+                <small class="text-muted">
+                    Select "No" if the item keeps the same SKU (e.g., "Shaft" sent → "Shaft" returned, just hardened).<br>
+                    Select "Yes" if processing creates a new SKU (e.g., "Shaft" sent → "Shaft-Painted-Red" returned).
+                </small>
+            </div>
+
+            <div id="returned-item-section" style="display:none;" class="mt-3">
+                <div class="alert alert-warning">
+                    <strong>Important:</strong> You need to specify which SKU will be returned after processing.
+                    This can be an existing item or you may need to create a new item first.
+                </div>
+                
+                <div class="form-group">
+                    <label>Returned Item (After Processing) *</label>
+                    <input type="hidden" name="returned_item_id" id="returned_item_id">
+                    <input type="text" id="returned_item_search" class="form-control" 
+                           placeholder="Search for the item that will be returned..." 
+                           autocomplete="off">
+                    <div id="returned-search-results" class="search-results"></div>
+                    <small class="text-muted">
+                        Search for the SKU that will be returned. 
+                        <a href="{{ url_for('items.new') }}" target="_blank">Create new item</a> if it doesn't exist yet.
+                    </small>
+                </div>
+
+                <div id="transformation-preview" class="alert alert-info" style="display:none;"></div>
+            </div>
+        </div>
+
+        <!-- Step 5: Additional Details -->
+        <div class="form-section">
+            <h3>Step 5: Timeline & Cost</h3>
+            <div class="form-group">
+                <label>Expected Return Date</label>
+                <input type="date" name="expected_return" id="expected_return" class="form-control">
+                <small class="text-muted" id="lead-time-hint">When do you expect the items back?</small>
+            </div>
+
+            <div class="form-group">
+                <label>Processing Cost (€)</label>
+                <input type="number" name="cost" class="form-control" step="0.01" value="0" min="0">
+            </div>
+
+            <div class="form-group">
+                <label>Notes / Special Instructions</label>
+                <textarea name="notes" id="notes" class="form-control" rows="3" 
+                          placeholder="Special requirements, quality specifications, delivery instructions..."></textarea>
+            </div>
+        </div>
+
+        <div class="alert alert-primary">
+            <strong>What happens when you submit:</strong>
+            <ul class="mb-0">
+                <li>{{ quantity_sent or '[quantity]' }} items will be deducted from inventory</li>
+                <li>External process tracking record will be created</li>
+                <li>You can receive items back through the reception system</li>
+                <li id="transformation-info" style="display:none;">Items will be received as a different SKU after processing</li>
+            </ul>
+        </div>
+
+        <div class="mt-3">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fas fa-paper-plane"></i> Create External Process
+            </button>
+            <a href="{{ url_for('external_processes.index') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<style>
+.form-section {
+    background: #f8f9fa;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    border-left: 4px solid #007bff;
+}
+.form-section h3 {
+    margin-top: 0;
+    color: #007bff;
+}
+.search-results {
+    display: none;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    background: white;
+    position: absolute;
+    z-index: 1000;
+    width: 95%;
+    margin-top: 2px;
+}
+.search-results div {
+    padding: 8px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+.search-results div:hover {
+    background-color: #f0f0f0;
+}
+.radio-inline {
+    margin-right: 15px;
+}
+</style>
+
+<script>
+let searchTimeout;
+let selectedItemAvailable = 0;
+let selectedSentItem = null;
+let selectedReturnedItem = null;
+
+// Supplier selection handler
+document.getElementById('supplier_id').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const leadTime = selectedOption.dataset.leadTime;
+    const processes = selectedOption.dataset.processes;
+    const shipping = selectedOption.dataset.shipping;
+    const instructions = selectedOption.dataset.instructions;
+    
+    const infoDiv = document.getElementById('supplier-info');
+    const leadTimeHint = document.getElementById('lead-time-hint');
+    const processTypesList = document.getElementById('process-types');
+    const notesField = document.getElementById('notes');
+    
+    if (leadTime || processes || shipping || instructions) {
+        let info = '<strong>Supplier Information:</strong><ul class="mb-0">';
+        
+        if (leadTime) {
+            info += `<li>Typical Lead Time: ${leadTime} days</li>`;
+            // Auto-calculate expected return
+            const returnDate = new Date();
+            returnDate.setDate(returnDate.getDate() + parseInt(leadTime));
+            document.getElementById('expected_return').value = returnDate.toISOString().split('T')[0];
+            leadTimeHint.textContent = `Typical turnaround: ${leadTime} days`;
+        }
+        
+        if (processes) {
+            info += `<li>Typical Processes: ${processes}</li>`;
+            // Populate datalist
+            processTypesList.innerHTML = processes.split(',')
+                .map(p => `<option value="${p.trim()}">`)
+                .join('');
+        }
+        
+        if (shipping) {
+            info += `<li>Shipping Account: ${shipping}</li>`;
+        }
+        
+        if (instructions) {
+            info += `<li>Pickup Instructions: ${instructions}</li>`;
+            if (!notesField.value) {
+                notesField.value = instructions;
+            }
+        }
+        
+        info += '</ul>';
+        infoDiv.innerHTML = info;
+        infoDiv.style.display = 'block';
+    } else {
+        infoDiv.style.display = 'none';
+    }
+});
+
+// Location change handler
+document.getElementById('location_id').addEventListener('change', function() {
+    document.getElementById('item_id').value = '';
+    document.getElementById('item_search').value = '';
+    selectedItemAvailable = 0;
+    selectedSentItem = null;
+    document.getElementById('available-qty').textContent = 'Select an item';
+    document.getElementById('search-results').style.display = 'none';
+    document.getElementById('quantity_sent').value = '';
+    document.getElementById('qty-warning').textContent = '';
+});
+
+// Item to send - search handler
+document.getElementById('item_search').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const query = this.value.trim();
+    const locationId = document.getElementById('location_id').value;
+    
+    if (!locationId) {
+        alert('Please select a location first');
+        this.value = '';
+        return;
+    }
+    
+    if (query.length < 2) {
+        document.getElementById('search-results').style.display = 'none';
+        return;
+    }
+    
+    searchTimeout = setTimeout(() => {
+        fetch(`/external-processes/search_items?q=${encodeURIComponent(query)}&location_id=${locationId}`)
+            .then(response => response.json())
+            .then(items => {
+                const resultsDiv = document.getElementById('search-results');
+                
+                if (items.length === 0) {
+                    resultsDiv.innerHTML = '<div style="padding: 8px; color: #666;">No items found at this location</div>';
+                    resultsDiv.style.display = 'block';
+                    return;
+                }
+                
+                resultsDiv.innerHTML = items.map(item => 
+                    `<div data-id="${item.id}" data-sku="${item.sku}" data-name="${item.name}" data-available="${item.available}">${item.label}</div>`
+                ).join('');
+                resultsDiv.style.display = 'block';
+                
+                resultsDiv.querySelectorAll('div').forEach(div => {
+                    div.addEventListener('click', function() {
+                        document.getElementById('item_id').value = this.dataset.id;
+                        document.getElementById('item_search').value = this.dataset.sku + ' - ' + this.dataset.name;
+                        selectedItemAvailable = parseInt(this.dataset.available);
+                        selectedSentItem = {
+                            id: this.dataset.id,
+                            sku: this.dataset.sku,
+                            name: this.dataset.name
+                        };
+                        
+                        document.getElementById('available-qty').innerHTML = 
+                            `<strong>Available: ${selectedItemAvailable}</strong>`;
+                        document.getElementById('quantity_sent').max = selectedItemAvailable;
+                        resultsDiv.style.display = 'none';
+                        
+                        updateTransformationPreview();
+                    });
+                });
+            });
+    }, 300);
+});
+
+// Returned item search
+document.getElementById('returned_item_search').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const query = this.value.trim();
+    
+    if (query.length < 2) {
+        document.getElementById('returned-search-results').style.display = 'none';
+        return;
+    }
+    
+    searchTimeout = setTimeout(() => {
+        fetch(`/external-processes/search_all_items?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(items => {
+                const resultsDiv = document.getElementById('returned-search-results');
+                
+                if (items.length === 0) {
+                    resultsDiv.innerHTML = '<div style="padding: 8px; color: #666;">No items found</div>';
+                    resultsDiv.style.display = 'block';
+                    return;
+                }
+                
+                resultsDiv.innerHTML = items.map(item => 
+                    `<div data-id="${item.id}" data-sku="${item.sku}" data-name="${item.name}">${item.label}</div>`
+                ).join('');
+                resultsDiv.style.display = 'block';
+                
+                resultsDiv.querySelectorAll('div').forEach(div => {
+                    div.addEventListener('click', function() {
+                        document.getElementById('returned_item_id').value = this.dataset.id;
+                        document.getElementById('returned_item_search').value = this.dataset.sku + ' - ' + this.dataset.name;
+                        selectedReturnedItem = {
+                            id: this.dataset.id,
+                            sku: this.dataset.sku,
+                            name: this.dataset.name
+                        };
+                        resultsDiv.style.display = 'none';
+                        
+                        updateTransformationPreview();
+                    });
+                });
+            });
+    }, 300);
+});
+
+// Creates new SKU radio buttons
+document.querySelectorAll('input[name="creates_new_sku"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const returnedSection = document.getElementById('returned-item-section');
+        const transformInfo = document.getElementById('transformation-info');
+        
+        if (this.value === 'yes') {
+            returnedSection.style.display = 'block';
+            transformInfo.style.display = 'list-item';
+            document.getElementById('returned_item_id').required = true;
+        } else {
+            returnedSection.style.display = 'none';
+            transformInfo.style.display = 'none';
+            document.getElementById('returned_item_id').required = false;
+            document.getElementById('returned_item_id').value = '';
+            document.getElementById('returned_item_search').value = '';
+            selectedReturnedItem = null;
+        }
+        
+        updateTransformationPreview();
+    });
+});
+
+function updateTransformationPreview() {
+    const previewDiv = document.getElementById('transformation-preview');
+    const createsNew = document.querySelector('input[name="creates_new_sku"]:checked').value === 'yes';
+    
+    if (createsNew && selectedSentItem && selectedReturnedItem) {
+        previewDiv.innerHTML = `
+            <strong>Transformation:</strong><br>
+            <i class="fas fa-arrow-right"></i> Sending: <strong>${selectedSentItem.sku}</strong> - ${selectedSentItem.name}<br>
+            <i class="fas fa-arrow-left"></i> Receiving: <strong>${selectedReturnedItem.sku}</strong> - ${selectedReturnedItem.name}
+        `;
+        previewDiv.style.display = 'block';
+    } else {
+        previewDiv.style.display = 'none';
+    }
+}
+
+// Quantity validation
+document.getElementById('quantity_sent').addEventListener('input', function() {
+    const quantity = parseInt(this.value) || 0;
+    const warningDiv = document.getElementById('qty-warning');
+    
+    if (selectedItemAvailable === 0) {
+        warningDiv.innerHTML = '<span style="color: red;">⚠️ No items available!</span>';
+    } else if (quantity > selectedItemAvailable) {
+        warningDiv.innerHTML = `<span style="color: red;">⚠️ Exceeds available (${selectedItemAvailable})</span>`;
+    } else if (quantity > 0) {
+        warningDiv.innerHTML = `<span style="color: green;">✓ Valid</span>`;
+    } else {
+        warningDiv.textContent = '';
+    }
+});
+
+// Form validation
+document.getElementById('externalProcessForm').addEventListener('submit', function(e) {
+    const createsNew = document.querySelector('input[name="creates_new_sku"]:checked').value === 'yes';
+    const quantity = parseInt(document.getElementById('quantity_sent').value) || 0;
+    
+    if (!document.getElementById('item_id').value) {
+        e.preventDefault();
+        alert('Please select an item to send');
+        return false;
+    }
+    
+    if (createsNew && !document.getElementById('returned_item_id').value) {
+        e.preventDefault();
+        alert('Please specify which item will be returned after processing');
+        return false;
+    }
+    
+    if (quantity > selectedItemAvailable) {
+        e.preventDefault();
+        alert(`Quantity cannot exceed available (${selectedItemAvailable})`);
+        return false;
+    }
+    
+    if (!confirm(`Send ${quantity} item(s) for external processing?`)) {
+        e.preventDefault();
+        return false;
+    }
+});
+
+// Hide results when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#item_search') && !e.target.closest('#search-results')) {
+        document.getElementById('search-results').style.display = 'none';
+    }
+    if (!e.target.closest('#returned_item_search') && !e.target.closest('#returned-search-results')) {
+        document.getElementById('returned-search-results').style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

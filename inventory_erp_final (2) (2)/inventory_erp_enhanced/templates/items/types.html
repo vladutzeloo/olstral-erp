@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Item Types - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Item Types</h1>
+
+<div class="action-links">
+    <a href="{{ url_for('items.new_type') }}" class="btn btn-primary">New Type</a>
+    <a href="{{ url_for('items.index') }}" class="btn btn-secondary">Back to Items</a>
+</div>
+
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Items Count</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for type in types %}
+            <tr>
+                <td><strong>{{ type.code }}</strong></td>
+                <td>{{ type.name }}</td>
+                <td>{{ type.category.name }}</td>
+                <td>{{ type.description or '-' }}</td>
+                <td>{{ type.items|length }}</td>
+                <td>{{ type.created_at.strftime('%Y-%m-%d') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

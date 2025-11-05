@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ po.po_number }}{% endblock %}
+{% block content %}
+<h1>Purchase Order: {{ po.po_number }}</h1>
+<div class="action-links">
+    {% if po.status == 'draft' %}
+    <a href="{{ url_for('purchase_orders.submit', id=po.id) }}" class="btn btn-primary">Submit PO</a>
+    {% endif %}
+    <a href="{{ url_for('purchase_orders.cancel', id=po.id) }}" class="btn btn-danger">Cancel</a>
+    <a href="{{ url_for('purchase_orders.index') }}" class="btn btn-secondary">Back</a>
+</div>
+<div class="section">
+    <table class="details-table">
+        <tr><th>PO Number</th><td>{{ po.po_number }}</td></tr>
+        <tr><th>Supplier</th><td>{{ po.supplier.name }}</td></tr>
+        <tr><th>Status</th><td><span class="badge badge-{{ po.status }}">{{ po.status }}</span></td></tr>
+        <tr><th>Order Date</th><td>{{ po.order_date.strftime('%Y-%m-%d') }}</td></tr>
+        <tr><th>Total</th><td>€{{ "%.2f"|format(po.total_amount) }}</td></tr>
+    </table>
+</div>
+<div class="section">
+    <h2>Items</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>SKU</th><th>Item</th><th>Ordered</th><th>Received</th><th>Unit Price</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+            {% for item in po.items %}
+            <tr>
+                <td>{{ item.item.sku }}</td>
+                <td>{{ item.item.name }}</td>
+                <td>{{ item.quantity_ordered }}</td>
+                <td>{{ item.quantity_received }}</td>
+                <td>€{{ "%.2f"|format(item.unit_price) }}</td>
+                <td>€{{ "%.2f"|format(item.quantity_ordered * item.unit_price) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

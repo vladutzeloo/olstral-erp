@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Materials - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Materials</h1>
+
+<div class="action-links">
+    <a href="{{ url_for('items.new_material') }}" class="btn btn-primary">New Material</a>
+    <a href="{{ url_for('items.import_materials') }}" class="btn btn-primary">Import Materials</a>
+    <a href="{{ url_for('items.series') }}" class="btn btn-secondary">Manage Series</a>
+    <a href="{{ url_for('items.index') }}" class="btn btn-secondary">Back to Items</a>
+</div>
+
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>NEO Code</th>
+                <th>Name</th>
+                <th>Series</th>
+                <th>Description</th>
+                <th>Items Count</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for material in materials %}
+            <tr>
+                <td><strong>{{ material.code }}</strong></td>
+                <td>{{ material.neo_code or '-' }}</td>
+                <td>{{ material.name }}</td>
+                <td>{{ material.series.name if material.series else '-' }}</td>
+                <td>{{ material.description or '-' }}</td>
+                <td>{{ material.items|length }}</td>
+                <td>{{ material.created_at.strftime('%Y-%m-%d') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

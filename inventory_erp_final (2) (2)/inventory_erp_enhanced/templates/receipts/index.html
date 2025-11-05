@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Receipts{% endblock %}
+{% block content %}
+<h1>Receipts</h1>
+<div class="action-links">
+    <a href="{{ url_for('receipts.new') }}" class="btn btn-primary">New Receipt</a>
+</div>
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr><th>Receipt #</th><th>PO Number</th><th>Location</th><th>Received Date</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for receipt in receipts %}
+            <tr>
+                <td><a href="{{ url_for('receipts.view', id=receipt.id) }}">{{ receipt.receipt_number }}</a></td>
+                <td>{% if receipt.po_id %}<a href="{{ url_for('purchase_orders.view', id=receipt.po_id) }}">{{ receipt.purchase_order.po_number }}</a>{% else %}-{% endif %}</td>
+                <td>{{ receipt.location.name }}</td>
+                <td>{{ receipt.received_date.strftime('%Y-%m-%d') }}</td>
+                <td><a href="{{ url_for('receipts.view', id=receipt.id) }}" class="btn btn-sm btn-primary">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ item.sku }} - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Edit Item: {{ item.sku }}</h1>
+
+<div class="section">
+    <form method="POST" action="{{ url_for('items.edit', id=item.id) }}">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="name">Item Name *</label>
+                    <input type="text" name="name" id="name" class="form-control" value="{{ item.name }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="neo_code">NEO Code</label>
+                    <input type="text" name="neo_code" id="neo_code" class="form-control" value="{{ item.neo_code or '' }}" maxlength="50">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea name="description" id="description" class="form-control">{{ item.description or '' }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="unit_of_measure">Unit of Measure</label>
+                    <input type="text" name="unit_of_measure" id="unit_of_measure" class="form-control" value="{{ item.unit_of_measure }}">
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <h4>Dimensions (for CNC parts)</h4>
+                <div class="form-group">
+                    <label for="diameter">Diameter (mm)</label>
+                    <input type="number" name="diameter" id="diameter" class="form-control" step="0.01" value="{{ item.diameter or '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="length">Length (mm)</label>
+                    <input type="number" name="length" id="length" class="form-control" step="0.01" value="{{ item.length or '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="width">Width (mm)</label>
+                    <input type="number" name="width" id="width" class="form-control" step="0.01" value="{{ item.width or '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="height">Height (mm)</label>
+                    <input type="number" name="height" id="height" class="form-control" step="0.01" value="{{ item.height or '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="weight_kg">Weight (kg)</label>
+                    <input type="number" name="weight_kg" id="weight_kg" class="form-control" step="0.001" value="{{ item.weight_kg or '' }}">
+                </div>
+
+                <h4>Inventory Settings</h4>
+                <div class="form-group">
+                    <label for="reorder_level">Reorder Level</label>
+                    <input type="number" name="reorder_level" id="reorder_level" class="form-control" value="{{ item.reorder_level }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="reorder_quantity">Reorder Quantity</label>
+                    <input type="number" name="reorder_quantity" id="reorder_quantity" class="form-control" value="{{ item.reorder_quantity }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="cost">Cost (EUR)</label>
+                    <input type="number" name="cost" id="cost" class="form-control" step="0.01" value="{{ item.cost }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="price">Selling Price (EUR)</label>
+                    <input type="number" name="price" id="price" class="form-control" step="0.01" value="{{ item.price }}">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary">Update Item</button>
+            <a href="{{ url_for('items.view', id=item.id) }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

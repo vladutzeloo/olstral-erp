@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}External Process Status{% endblock %}
+{% block content %}
+<h1>External Process Status</h1>
+<div class="dashboard-grid">
+    <div class="card"><h3>Sent</h3><div class="card-value">{{ stats.sent }}</div></div>
+    <div class="card"><h3>In Progress</h3><div class="card-value">{{ stats.in_progress }}</div></div>
+    <div class="card"><h3>Partial</h3><div class="card-value">{{ stats.partial }}</div></div>
+    <div class="card"><h3>Completed</h3><div class="card-value">{{ stats.completed }}</div></div>
+    <div class="card"><h3>Cancelled</h3><div class="card-value">{{ stats.cancelled }}</div></div>
+</div>
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr><th>Process #</th><th>Item</th><th>Supplier</th><th>Type</th><th>Sent</th><th>Returned</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for process in processes %}
+            <tr>
+                <td><a href="{{ url_for('external_processes.view', id=process.id) }}">{{ process.process_number }}</a></td>
+                <td>{{ process.item.sku }}</td>
+                <td>{{ process.supplier.name }}</td>
+                <td>{{ process.process_type }}</td>
+                <td>{{ process.quantity_sent }}</td>
+                <td>{{ process.quantity_returned }}</td>
+                <td><span class="badge badge-{{ process.status }}">{{ process.status }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

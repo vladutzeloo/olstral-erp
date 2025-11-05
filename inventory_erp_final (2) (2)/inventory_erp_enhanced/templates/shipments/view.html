@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ shipment.shipment_number }}{% endblock %}
+{% block content %}
+<h1>Shipment: {{ shipment.shipment_number }}</h1>
+<div class="action-links">
+    {% if shipment.status == 'pending' %}
+    <a href="{{ url_for('shipments.ship', id=shipment.id) }}" class="btn btn-primary">Mark as Shipped</a>
+    {% endif %}
+    {% if shipment.status == 'shipped' %}
+    <a href="{{ url_for('shipments.deliver', id=shipment.id) }}" class="btn btn-success">Mark as Delivered</a>
+    {% endif %}
+</div>
+<div class="section">
+    <table class="details-table">
+        <tr><th>Shipment Number</th><td>{{ shipment.shipment_number }}</td></tr>
+        <tr><th>Customer</th><td>{{ shipment.customer_name }}</td></tr>
+        <tr><th>From Location</th><td>{{ shipment.from_location.name }}</td></tr>
+        <tr><th>Status</th><td><span class="badge badge-{{ shipment.status }}">{{ shipment.status }}</span></td></tr>
+        <tr><th>Ship Date</th><td>{{ shipment.ship_date.strftime('%Y-%m-%d') }}</td></tr>
+        <tr><th>Tracking</th><td>{{ shipment.tracking_number or '-' }}</td></tr>
+    </table>
+</div>
+<div class="section">
+    <h2>Items</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>SKU</th><th>Item</th><th>Quantity</th></tr>
+        </thead>
+        <tbody>
+            {% for item in shipment.items %}
+            <tr>
+                <td>{{ item.item.sku }}</td>
+                <td>{{ item.item.name }}</td>
+                <td>{{ item.quantity }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

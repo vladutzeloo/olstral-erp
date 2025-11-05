@@ -1,0 +1,337 @@
+from datetime import datetime
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
+from extensions import db
+
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(20), default='user')  # admin, manager, user
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+class Category(db.Model):
+    __tablename__ = 'categories'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(10), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    items = db.relationship('Item', backref='category', lazy=True)
+
+class ItemType(db.Model):
+    __tablename__ = 'item_types'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(10), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    category = db.relationship('Category', backref='types')
+    items = db.relationship('Item', backref='item_type', lazy=True)
+
+class Material(db.Model):
+    __tablename__ = 'materials'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(10), unique=True, nullable=False)
+    neo_code = db.Column(db.String(50))
+    name = db.Column(db.String(100), nullable=False)
+    series_id = db.Column(db.Integer, db.ForeignKey('material_series.id'))
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    series = db.relationship('MaterialSeries', backref='materials')
+    items = db.relationship('Item', backref='material', lazy=True)
+
+class MaterialSeries(db.Model):
+    __tablename__ = 'material_series'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(10), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Item(db.Model):
+    __tablename__ = 'items'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    sku = db.Column(db.String(50), unique=True, nullable=False)
+    neo_code = db.Column(db.String(50))
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
+    type_id = db.Column(db.Integer, db.ForeignKey('item_types.id'), nullable=False)
+    material_id = db.Column(db.Integer, db.ForeignKey('materials.id'))
+    unit_of_measure = db.Column(db.String(20), default='PCS')
+    
+    # Dimensional fields for CNC
+    diameter = db.Column(db.Float)  # in mm
+    length = db.Column(db.Float)  # in mm
+    width = db.Column(db.Float)  # in mm
+    height = db.Column(db.Float)  # in mm
+    weight_kg = db.Column(db.Float)  # in kg
+    
+    reorder_level = db.Column(db.Integer, default=0)
+    reorder_quantity = db.Column(db.Integer, default=0)
+    cost = db.Column(db.Float, default=0.0)
+    price = db.Column(db.Float, default=0.0)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    inventory_locations = db.relationship('InventoryLocation', backref='item', lazy=True, cascade='all, delete-orphan')
+    
+    def get_total_quantity(self):
+        return sum(loc.quantity for loc in self.inventory_locations)
+    
+    def get_available_quantity(self):
+        return sum(loc.quantity for loc in self.inventory_locations if loc.location.is_active)
+
+class Location(db.Model):
+    __tablename__ = 'locations'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(20), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(50))  # warehouse, production, shipping, etc.
+    address = db.Column(db.String(255))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    inventory = db.relationship('InventoryLocation', backref='location', lazy=True)
+
+class InventoryLocation(db.Model):
+    __tablename__ = 'inventory_locations'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
+    quantity = db.Column(db.Integer, default=0)
+    bin_location = db.Column(db.String(50))
+    last_counted = db.Column(db.DateTime)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (db.UniqueConstraint('item_id', 'location_id', name='_item_location_uc'),)
+
+class Supplier(db.Model):
+    __tablename__ = 'suppliers'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(20), unique=True, nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    contact_person = db.Column(db.String(100))
+    email = db.Column(db.String(120))
+    phone = db.Column(db.String(20))
+    address = db.Column(db.Text)
+    payment_terms = db.Column(db.String(100))
+    is_active = db.Column(db.Boolean, default=True)
+    
+    # External processing specific fields
+    is_external_processor = db.Column(db.Boolean, default=False)
+    typical_process_types = db.Column(db.Text)  # JSON list of common processes they do
+    typical_lead_time_days = db.Column(db.Integer)  # Average turnaround time
+    shipping_account = db.Column(db.String(100))  # Their shipping account number
+    pickup_instructions = db.Column(db.Text)  # Special pickup/delivery instructions
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    purchase_orders = db.relationship('PurchaseOrder', backref='supplier', lazy=True)
+    external_processes = db.relationship('ExternalProcess', backref='supplier', lazy=True)
+
+class Client(db.Model):
+    __tablename__ = 'clients'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(20), unique=True, nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    contact_person = db.Column(db.String(100))
+    email = db.Column(db.String(120))
+    phone = db.Column(db.String(20))
+    address = db.Column(db.Text)
+    payment_terms = db.Column(db.String(100))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    shipments = db.relationship('Shipment', backref='client', lazy=True)
+
+class PurchaseOrder(db.Model):
+    __tablename__ = 'purchase_orders'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    po_number = db.Column(db.String(50), unique=True, nullable=False)
+    supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'), nullable=False)
+    po_type = db.Column(db.String(20), default='items')  # items, materials, external_process
+    order_date = db.Column(db.DateTime, default=datetime.utcnow)
+    expected_date = db.Column(db.DateTime)
+    status = db.Column(db.String(20), default='draft')  # draft, submitted, partial, received, cancelled
+    total_amount = db.Column(db.Float, default=0.0)
+    notes = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    items = db.relationship('PurchaseOrderItem', backref='purchase_order', lazy=True, cascade='all, delete-orphan')
+
+class PurchaseOrderItem(db.Model):
+    __tablename__ = 'purchase_order_items'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    po_id = db.Column(db.Integer, db.ForeignKey('purchase_orders.id'), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    quantity_ordered = db.Column(db.Integer, nullable=False)
+    quantity_received = db.Column(db.Integer, default=0)
+    unit_price = db.Column(db.Float, nullable=False)
+    notes = db.Column(db.Text)
+    
+    item = db.relationship('Item')
+
+class Receipt(db.Model):
+    __tablename__ = 'receipts'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    receipt_number = db.Column(db.String(50), unique=True, nullable=False)
+    source_type = db.Column(db.String(30), default='purchase_order')  # purchase_order, production, external_process
+    po_id = db.Column(db.Integer, db.ForeignKey('purchase_orders.id'))
+    external_process_id = db.Column(db.Integer, db.ForeignKey('external_processes.id'))
+    internal_order_number = db.Column(db.String(50))  # For production receipts
+    location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
+    received_date = db.Column(db.DateTime, default=datetime.utcnow)
+    received_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    items = db.relationship('ReceiptItem', backref='receipt', lazy=True, cascade='all, delete-orphan')
+    external_process = db.relationship('ExternalProcess', backref='receipts')
+
+class ReceiptItem(db.Model):
+    __tablename__ = 'receipt_items'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    receipt_id = db.Column(db.Integer, db.ForeignKey('receipts.id'), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    scrap_quantity = db.Column(db.Integer, default=0)  # Quantity marked as scrap/damaged
+    notes = db.Column(db.Text)
+    
+    item = db.relationship('Item')
+
+class ExternalProcess(db.Model):
+    __tablename__ = 'external_processes'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    process_number = db.Column(db.String(50), unique=True, nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)  # Original item sent
+    returned_item_id = db.Column(db.Integer, db.ForeignKey('items.id'))  # Transformed item received back
+    supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'), nullable=False)
+    quantity_sent = db.Column(db.Integer, nullable=False)
+    quantity_returned = db.Column(db.Integer, default=0)
+    process_type = db.Column(db.String(100), nullable=False)
+    process_result = db.Column(db.String(200))  # e.g., "Painted Red", "Zinc Plated", "Heat Treated"
+    creates_new_sku = db.Column(db.Boolean, default=False)  # True if process creates a different item
+    sent_date = db.Column(db.DateTime, default=datetime.utcnow)
+    expected_return = db.Column(db.DateTime)
+    actual_return = db.Column(db.DateTime)
+    status = db.Column(db.String(20), default='sent')  # sent, in_progress, completed, cancelled
+    cost = db.Column(db.Float, default=0.0)
+    notes = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    item = db.relationship('Item', foreign_keys=[item_id], backref='external_processes_sent')
+    returned_item = db.relationship('Item', foreign_keys=[returned_item_id])
+
+class Shipment(db.Model):
+    __tablename__ = 'shipments'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    shipment_number = db.Column(db.String(50), unique=True, nullable=False)
+    from_location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'))
+    customer_name = db.Column(db.String(200))  # For backward compatibility
+    shipping_address = db.Column(db.Text)
+    ship_date = db.Column(db.DateTime, default=datetime.utcnow)
+    tracking_number = db.Column(db.String(100))
+    status = db.Column(db.String(20), default='pending')  # pending, shipped, delivered, cancelled
+    notes = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    items = db.relationship('ShipmentItem', backref='shipment', lazy=True, cascade='all, delete-orphan')
+    from_location = db.relationship('Location', foreign_keys=[from_location_id])
+
+class ShipmentItem(db.Model):
+    __tablename__ = 'shipment_items'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    shipment_id = db.Column(db.Integer, db.ForeignKey('shipments.id'), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    notes = db.Column(db.Text)
+    
+    item = db.relationship('Item')
+
+class InventoryTransaction(db.Model):
+    __tablename__ = 'inventory_transactions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
+    transaction_type = db.Column(db.String(50), nullable=False)  # receipt, shipment, adjustment, transfer, process_out, process_in
+    quantity = db.Column(db.Integer, nullable=False)
+    reference_type = db.Column(db.String(50))  # receipt, shipment, po, external_process
+    reference_id = db.Column(db.Integer)
+    notes = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    item = db.relationship('Item')
+    location = db.relationship('Location')
+
+class AuditLog(db.Model):
+    __tablename__ = 'audit_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    action = db.Column(db.String(100), nullable=False)
+    table_name = db.Column(db.String(50))
+    record_id = db.Column(db.Integer)
+    old_values = db.Column(db.Text)
+    new_values = db.Column(db.Text)
+    ip_address = db.Column(db.String(50))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Scrap(db.Model):
+    __tablename__ = 'scraps'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    scrap_number = db.Column(db.String(50), unique=True, nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    reason = db.Column(db.String(200))  # damaged, defective, expired, etc.
+    source_type = db.Column(db.String(30))  # receipt, warehouse, production
+    source_id = db.Column(db.Integer)  # ID of receipt or other source
+    scrap_date = db.Column(db.DateTime, default=datetime.utcnow)
+    scrapped_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    item = db.relationship('Item')
+    location = db.relationship('Location')

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Import Materials{% endblock %}
+{% block content %}
+<h1>Import Materials</h1>
+<div class="section">
+    <form method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label>Excel File *</label>
+            <input type="file" name="file" class="form-control" accept=".xlsx,.xls" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Import Materials</button>
+        <a href="{{ url_for('items.download_materials_template') }}" class="btn btn-secondary">Download Template</a>
+        <a href="{{ url_for('items.materials') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

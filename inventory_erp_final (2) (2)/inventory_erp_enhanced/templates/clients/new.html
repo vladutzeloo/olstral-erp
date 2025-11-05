@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}New Client{% endblock %}
+{% block content %}
+<h1>Create New Client</h1>
+<div class="section">
+    <form method="POST">
+        <div class="form-group">
+            <label>Name *</label>
+            <input type="text" name="name" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label>Contact Person</label>
+            <input type="text" name="contact_person" class="form-control">
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email" class="form-control">
+        </div>
+        <div class="form-group">
+            <label>Phone</label>
+            <input type="tel" name="phone" class="form-control">
+        </div>
+        <div class="form-group">
+            <label>Address</label>
+            <textarea name="address" class="form-control"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Payment Terms</label>
+            <input type="text" name="payment_terms" class="form-control" placeholder="Net 30">
+        </div>
+        <button type="submit" class="btn btn-primary">Create Client</button>
+        <a href="{{ url_for('clients.index') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

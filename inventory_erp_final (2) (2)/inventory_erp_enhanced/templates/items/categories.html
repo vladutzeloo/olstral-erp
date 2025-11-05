@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Categories - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Categories</h1>
+
+<div class="action-links">
+    <a href="{{ url_for('items.new_category') }}" class="btn btn-primary">New Category</a>
+    <a href="{{ url_for('items.index') }}" class="btn btn-secondary">Back to Items</a>
+</div>
+
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Items Count</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for category in categories %}
+            <tr>
+                <td><strong>{{ category.code }}</strong></td>
+                <td>{{ category.name }}</td>
+                <td>{{ category.description or '-' }}</td>
+                <td>{{ category.items|length }}</td>
+                <td>{{ category.created_at.strftime('%Y-%m-%d') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

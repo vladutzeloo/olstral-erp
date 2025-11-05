@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Locations - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Locations</h1>
+
+<div class="action-links">
+    <a href="{{ url_for('inventory.new_location') }}" class="btn btn-primary">New Location</a>
+    <a href="{{ url_for('inventory.index') }}" class="btn btn-secondary">Back to Inventory</a>
+</div>
+
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Address</th>
+                <th>Status</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for location in locations %}
+            <tr>
+                <td><strong>{{ location.code }}</strong></td>
+                <td>{{ location.name }}</td>
+                <td>{{ location.type or '-' }}</td>
+                <td>{{ location.address or '-' }}</td>
+                <td>
+                    {% if location.is_active %}
+                    <span class="badge badge-completed">Active</span>
+                    {% else %}
+                    <span class="badge badge-cancelled">Inactive</span>
+                    {% endif %}
+                </td>
+                <td>{{ location.created_at.strftime('%Y-%m-%d') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

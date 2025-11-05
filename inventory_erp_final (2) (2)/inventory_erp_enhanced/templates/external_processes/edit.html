@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ process.process_number }}{% endblock %}
+
+{% block content %}
+<h1>Edit External Process: {{ process.process_number }}</h1>
+
+<div class="section">
+    <form method="POST">
+        <div class="form-group">
+            <label for="process_type">Process Type *</label>
+            <input type="text" name="process_type" id="process_type" class="form-control" value="{{ process.process_type }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="expected_return">Expected Return Date</label>
+            <input type="date" name="expected_return" id="expected_return" class="form-control" value="{{ process.expected_return.strftime('%Y-%m-%d') if process.expected_return else '' }}">
+        </div>
+
+        <div class="form-group">
+            <label for="cost">Cost (EUR)</label>
+            <input type="number" name="cost" id="cost" class="form-control" step="0.01" value="{{ process.cost }}">
+        </div>
+
+        <div class="form-group">
+            <label for="notes">Notes</label>
+            <textarea name="notes" id="notes" class="form-control">{{ process.notes or '' }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary">Update Process</button>
+            <a href="{{ url_for('external_processes.view', id=process.id) }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

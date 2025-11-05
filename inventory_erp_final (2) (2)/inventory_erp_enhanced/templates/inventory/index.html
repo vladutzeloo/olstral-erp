@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Inventory Stock Levels</h1>
+
+<div class="action-links">
+    <a href="{{ url_for('inventory.adjust') }}" class="btn btn-primary">Adjust Stock</a>
+    <a href="{{ url_for('inventory.transfer') }}" class="btn btn-primary">Transfer Stock</a>
+    <a href="{{ url_for('inventory.locations') }}" class="btn btn-secondary">Manage Locations</a>
+</div>
+
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>SKU</th>
+                <th>Item Name</th>
+                <th>Location</th>
+                <th>Bin</th>
+                <th>Quantity</th>
+                <th>Reorder Level</th>
+                <th>Last Updated</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inv in inventory %}
+            <tr {% if inv.quantity <= inv.item.reorder_level and inv.item.reorder_level > 0 %}class="text-danger"{% endif %}>
+                <td><a href="{{ url_for('items.view', id=inv.item.id) }}">{{ inv.item.sku }}</a></td>
+                <td>{{ inv.item.name }}</td>
+                <td>{{ inv.location.name }}</td>
+                <td>{{ inv.bin_location or '-' }}</td>
+                <td><strong>{{ inv.quantity }}</strong></td>
+                <td>{{ inv.item.reorder_level }}</td>
+                <td>{{ inv.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Suppliers{% endblock %}
+{% block content %}
+<h1>Suppliers</h1>
+<div class="action-links">
+    <a href="{{ url_for('purchase_orders.new_supplier') }}" class="btn btn-primary">New Supplier</a>
+</div>
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr><th>Code</th><th>Name</th><th>Contact</th><th>Email</th><th>Phone</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for supplier in suppliers %}
+            <tr>
+                <td>{{ supplier.code }}</td>
+                <td>{{ supplier.name }}</td>
+                <td>{{ supplier.contact_person or '-' }}</td>
+                <td>{{ supplier.email or '-' }}</td>
+                <td>{{ supplier.phone or '-' }}</td>
+                <td><span class="badge badge-{{ 'completed' if supplier.is_active else 'cancelled' }}">{{ 'Active' if supplier.is_active else 'Inactive' }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

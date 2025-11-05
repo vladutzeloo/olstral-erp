@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Scrap Details{% endblock %}
+{% block content %}
+<div class="header-row">
+    <h1>Scrap Record: {{ scrap.scrap_number }}</h1>
+    <a href="{{ url_for('scraps.index') }}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back to List
+    </a>
+</div>
+
+<div class="section">
+    <h2>Details</h2>
+    <div class="row">
+        <div class="col-md-6">
+            <table class="table table-bordered">
+                <tr>
+                    <th style="width: 40%;">Scrap Number:</th>
+                    <td>{{ scrap.scrap_number }}</td>
+                </tr>
+                <tr>
+                    <th>Item:</th>
+                    <td>
+                        <a href="{{ url_for('items.view', id=scrap.item.id) }}">
+                            {{ scrap.item.sku }} - {{ scrap.item.name }}
+                        </a>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Location:</th>
+                    <td>{{ scrap.location.name }}</td>
+                </tr>
+                <tr>
+                    <th>Quantity Scrapped:</th>
+                    <td><strong>{{ scrap.quantity }}</strong></td>
+                </tr>
+            </table>
+        </div>
+        <div class="col-md-6">
+            <table class="table table-bordered">
+                <tr>
+                    <th style="width: 40%;">Reason:</th>
+                    <td>{{ scrap.reason or 'N/A' }}</td>
+                </tr>
+                <tr>
+                    <th>Source Type:</th>
+                    <td><span class="badge badge-info">{{ scrap.source_type }}</span></td>
+                </tr>
+                <tr>
+                    <th>Scrap Date:</th>
+                    <td>{{ scrap.scrap_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                </tr>
+                <tr>
+                    <th>Created:</th>
+                    <td>{{ scrap.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    {% if scrap.notes %}
+    <div class="mt-3">
+        <h3>Notes</h3>
+        <div class="alert alert-info">
+            {{ scrap.notes }}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

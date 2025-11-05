@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Inventory Valuation{% endblock %}
+{% block content %}
+<h1>Inventory Valuation</h1>
+<div class="section">
+    <h2>Total Inventory Value: €{{ "%.2f"|format(total_value) }}</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>SKU</th><th>Item</th><th>Category</th><th>Total Qty</th><th>Unit Cost</th><th>Total Value</th></tr>
+        </thead>
+        <tbody>
+            {% for result in results %}
+            <tr>
+                <td>{{ result.Item.sku }}</td>
+                <td>{{ result.Item.name }}</td>
+                <td>{{ result.Item.category.name }}</td>
+                <td>{{ result.total_qty or 0 }}</td>
+                <td>€{{ "%.2f"|format(result.Item.cost) }}</td>
+                <td>€{{ "%.2f"|format(result.total_value or 0) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

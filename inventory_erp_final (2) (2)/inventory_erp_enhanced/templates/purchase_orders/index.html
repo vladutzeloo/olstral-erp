@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Purchase Orders - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Purchase Orders</h1>
+
+<div class="action-links">
+    <a href="{{ url_for('purchase_orders.new') }}" class="btn btn-primary">New Purchase Order</a>
+    <a href="{{ url_for('purchase_orders.suppliers') }}" class="btn btn-secondary">Manage Suppliers</a>
+</div>
+
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>PO Number</th>
+                <th>Supplier</th>
+                <th>Order Date</th>
+                <th>Expected Date</th>
+                <th>Status</th>
+                <th>Total Amount</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for po in pos %}
+            <tr>
+                <td><a href="{{ url_for('purchase_orders.view', id=po.id) }}">{{ po.po_number }}</a></td>
+                <td>{{ po.supplier.name }}</td>
+                <td>{{ po.order_date.strftime('%Y-%m-%d') }}</td>
+                <td>{{ po.expected_date.strftime('%Y-%m-%d') if po.expected_date else '-' }}</td>
+                <td><span class="badge badge-{{ po.status }}">{{ po.status.title() }}</span></td>
+                <td>€{{ "%.2f"|format(po.total_amount) }}</td>
+                <td>
+                    <a href="{{ url_for('purchase_orders.view', id=po.id) }}" class="btn btn-sm btn-primary">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

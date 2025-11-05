@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}{{ item.sku }} - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Item Details</h1>
+
+<div class="action-links">
+    <a href="{{ url_for('items.edit', id=item.id) }}" class="btn btn-primary">Edit</a>
+    <a href="{{ url_for('items.index') }}" class="btn btn-secondary">Back to List</a>
+</div>
+
+<div class="section">
+    <h2>Basic Information</h2>
+    <table class="details-table">
+        <tr>
+            <th>SKU</th>
+            <td><strong>{{ item.sku }}</strong></td>
+        </tr>
+        <tr>
+            <th>Name</th>
+            <td>{{ item.name }}</td>
+        </tr>
+        <tr>
+            <th>Description</th>
+            <td>{{ item.description or '-' }}</td>
+        </tr>
+        <tr>
+            <th>Category</th>
+            <td>{{ item.category.name }}</td>
+        </tr>
+        <tr>
+            <th>Type</th>
+            <td>{{ item.item_type.name }}</td>
+        </tr>
+        <tr>
+            <th>Material</th>
+            <td>{{ item.material.name if item.material else '-' }}</td>
+        </tr>
+        <tr>
+            <th>Unit of Measure</th>
+            <td>{{ item.unit_of_measure }}</td>
+        </tr>
+    </table>
+</div>
+
+<div class="section">
+    <h2>Dimensions & Weight</h2>
+    <table class="details-table">
+        <tr>
+            <th>Diameter</th>
+            <td>{{ "%.2f mm"|format(item.diameter) if item.diameter else '-' }}</td>
+        </tr>
+        <tr>
+            <th>Length</th>
+            <td>{{ "%.2f mm"|format(item.length) if item.length else '-' }}</td>
+        </tr>
+        <tr>
+            <th>Width</th>
+            <td>{{ "%.2f mm"|format(item.width) if item.width else '-' }}</td>
+        </tr>
+        <tr>
+            <th>Height</th>
+            <td>{{ "%.2f mm"|format(item.height) if item.height else '-' }}</td>
+        </tr>
+        <tr>
+            <th>Weight</th>
+            <td>{{ "%.3f kg"|format(item.weight_kg) if item.weight_kg else '-' }}</td>
+        </tr>
+    </table>
+</div>
+
+<div class="section">
+    <h2>Pricing & Inventory</h2>
+    <table class="details-table">
+        <tr>
+            <th>Cost</th>
+            <td>€{{ "%.2f"|format(item.cost) }}</td>
+        </tr>
+        <tr>
+            <th>Selling Price</th>
+            <td>€{{ "%.2f"|format(item.price) }}</td>
+        </tr>
+        <tr>
+            <th>Reorder Level</th>
+            <td>{{ item.reorder_level }}</td>
+        </tr>
+        <tr>
+            <th>Reorder Quantity</th>
+            <td>{{ item.reorder_quantity }}</td>
+        </tr>
+    </table>
+</div>
+
+<div class="section">
+    <h2>Inventory by Location</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Location</th>
+                <th>Bin Location</th>
+                <th>Quantity</th>
+                <th>Last Counted</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inv_loc in item.inventory_locations %}
+            <tr>
+                <td>{{ inv_loc.location.name }}</td>
+                <td>{{ inv_loc.bin_location or '-' }}</td>
+                <td><strong>{{ inv_loc.quantity }}</strong></td>
+                <td>{{ inv_loc.last_counted.strftime('%Y-%m-%d') if inv_loc.last_counted else '-' }}</td>
+            </tr>
+            {% endfor %}
+            {% if not item.inventory_locations %}
+            <tr>
+                <td colspan="4" class="text-center">No inventory records</td>
+            </tr>
+            {% endif %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <th colspan="2">Total Quantity</th>
+                <th><strong>{{ item.get_total_quantity() }}</strong></th>
+                <th></th>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% endblock %}

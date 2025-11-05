@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Clients{% endblock %}
+{% block content %}
+<h1>Clients</h1>
+<div class="action-links">
+    <a href="{{ url_for('clients.new') }}" class="btn btn-primary">New Client</a>
+</div>
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr><th>Code</th><th>Name</th><th>Contact</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for client in clients %}
+            <tr>
+                <td>{{ client.code }}</td>
+                <td><a href="{{ url_for('clients.view', id=client.id) }}">{{ client.name }}</a></td>
+                <td>{{ client.contact_person or '-' }}</td>
+                <td>{{ client.email or '-' }}</td>
+                <td>{{ client.phone or '-' }}</td>
+                <td><span class="badge badge-{{ 'completed' if client.is_active else 'cancelled' }}">{{ 'Active' if client.is_active else 'Inactive' }}</span></td>
+                <td>
+                    <a href="{{ url_for('clients.view', id=client.id) }}" class="btn btn-sm btn-primary">View</a>
+                    <a href="{{ url_for('clients.edit', id=client.id) }}" class="btn btn-sm btn-secondary">Edit</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

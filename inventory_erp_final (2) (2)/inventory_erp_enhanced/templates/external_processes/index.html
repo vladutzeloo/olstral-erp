@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}External Processes{% endblock %}
+{% block content %}
+<div class="header-row">
+    <h1>External Processes</h1>
+    <a href="{{ url_for('external_processes.new') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New External Process
+    </a>
+</div>
+
+<div class="section">
+    <p class="text-muted">Track items sent to external suppliers for processing (plating, heat treatment, painting, etc.)</p>
+    
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Process #</th>
+                    <th>Item</th>
+                    <th>Supplier</th>
+                    <th>Process Type</th>
+                    <th>Sent</th>
+                    <th>Returned</th>
+                    <th>Remaining</th>
+                    <th>Status</th>
+                    <th>Sent Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for process in processes %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('external_processes.view', id=process.id) }}">
+                            <strong>{{ process.process_number }}</strong>
+                        </a>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('items.view', id=process.item.id) }}">
+                            {{ process.item.sku }}
+                        </a>
+                        <br>
+                        <small class="text-muted">{{ process.item.name }}</small>
+                    </td>
+                    <td>{{ process.supplier.name }}</td>
+                    <td>{{ process.process_type }}</td>
+                    <td><strong>{{ process.quantity_sent }}</strong></td>
+                    <td>{{ process.quantity_returned }}</td>
+                    <td>
+                        <strong class="{% if process.quantity_returned >= process.quantity_sent %}text-success{% else %}text-primary{% endif %}">
+                            {{ process.quantity_sent - process.quantity_returned }}
+                        </strong>
+                    </td>
+                    <td>
+                        {% if process.status == 'sent' %}
+                        <span class="badge badge-primary">Sent</span>
+                        {% elif process.status == 'in_progress' %}
+                        <span class="badge badge-warning">In Progress</span>
+                        {% elif process.status == 'partial' %}
+                        <span class="badge badge-info">Partial</span>
+                        {% elif process.status == 'completed' %}
+                        <span class="badge badge-success">Completed</span>
+                        {% elif process.status == 'cancelled' %}
+                        <span class="badge badge-danger">Cancelled</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ process.sent_date.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        <a href="{{ url_for('external_processes.view', id=process.id) }}" 
+                           class="btn btn-sm btn-info" title="View Details">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        {% if process.status in ['sent', 'in_progress', 'partial'] and process.quantity_returned < process.quantity_sent %}
+                        <a href="{{ url_for('external_processes.receive', id=process.id) }}" 
+                           class="btn btn-sm btn-success" title="Receive Items">
+                            <i class="fas fa-box-open"></i>
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="10" class="text-center">
+                        <p class="mt-3 mb-3">No external processes found</p>
+                        <a href="{{ url_for('external_processes.new') }}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Create First External Process
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="section">
+    <h3>About External Processes</h3>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="alert alert-info">
+                <strong>Create Process</strong>
+                <p>Send items to external suppliers for processing like plating, heat treatment, or painting.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="alert alert-success">
+                <strong>Track Progress</strong>
+                <p>Monitor status and quantities sent vs. returned in real-time.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="alert alert-primary">
+                <strong>Receive Back</strong>
+                <p>Use reception system to receive items back and track any scrap/damage.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.badge {
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+.badge-primary { background-color: #007bff; color: white; }
+.badge-success { background-color: #28a745; color: white; }
+.badge-warning { background-color: #ffc107; color: black; }
+.badge-danger { background-color: #dc3545; color: white; }
+.badge-info { background-color: #17a2b8; color: white; }
+</style>
+{% endblock %}

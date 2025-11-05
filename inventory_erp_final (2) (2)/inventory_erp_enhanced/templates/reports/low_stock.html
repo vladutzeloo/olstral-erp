@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Low Stock Report{% endblock %}
+{% block content %}
+<h1>Low Stock Items</h1>
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr><th>SKU</th><th>Item</th><th>Current Qty</th><th>Reorder Level</th><th>Shortage</th><th>Reorder Qty</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            {% for item_data in items %}
+            <tr class="text-danger">
+                <td>{{ item_data.item.sku }}</td>
+                <td>{{ item_data.item.name }}</td>
+                <td><strong>{{ item_data.current_qty }}</strong></td>
+                <td>{{ item_data.reorder_level }}</td>
+                <td>{{ item_data.shortage }}</td>
+                <td>{{ item_data.reorder_qty }}</td>
+                <td><a href="{{ url_for('purchase_orders.new') }}" class="btn btn-sm btn-primary">Create PO</a></td>
+            </tr>
+            {% endfor %}
+            {% if not items %}
+            <tr>
+                <td colspan="7" class="text-center">No low stock items</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

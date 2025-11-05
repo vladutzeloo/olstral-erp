@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Purchase Order Status{% endblock %}
+{% block content %}
+<h1>Purchase Order Status</h1>
+<div class="dashboard-grid">
+    <div class="card"><h3>Draft</h3><div class="card-value">{{ stats.draft }}</div></div>
+    <div class="card"><h3>Submitted</h3><div class="card-value">{{ stats.submitted }}</div></div>
+    <div class="card"><h3>Partial</h3><div class="card-value">{{ stats.partial }}</div></div>
+    <div class="card"><h3>Received</h3><div class="card-value">{{ stats.received }}</div></div>
+    <div class="card"><h3>Cancelled</h3><div class="card-value">{{ stats.cancelled }}</div></div>
+</div>
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr><th>PO Number</th><th>Supplier</th><th>Order Date</th><th>Status</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+            {% for po in pos %}
+            <tr>
+                <td><a href="{{ url_for('purchase_orders.view', id=po.id) }}">{{ po.po_number }}</a></td>
+                <td>{{ po.supplier.name }}</td>
+                <td>{{ po.order_date.strftime('%Y-%m-%d') }}</td>
+                <td><span class="badge badge-{{ po.status }}">{{ po.status }}</span></td>
+                <td>€{{ "%.2f"|format(po.total_amount) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

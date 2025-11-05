@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Material Series - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Material Series</h1>
+
+<div class="action-links">
+    <a href="{{ url_for('items.new_series') }}" class="btn btn-primary">New Series</a>
+    <a href="{{ url_for('items.index') }}" class="btn btn-secondary">Back to Items</a>
+</div>
+
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Materials Count</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in series %}
+            <tr>
+                <td><strong>{{ s.code }}</strong></td>
+                <td>{{ s.name }}</td>
+                <td>{{ s.description or '-' }}</td>
+                <td>{{ s.materials|length }}</td>
+                <td>{{ s.created_at.strftime('%Y-%m-%d') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

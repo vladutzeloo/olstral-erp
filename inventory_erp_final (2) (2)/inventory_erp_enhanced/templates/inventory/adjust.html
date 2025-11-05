@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Adjust Inventory - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Adjust Inventory</h1>
+
+<div class="section">
+    <form method="POST" action="{{ url_for('inventory.adjust') }}">
+        <div class="form-group">
+            <label for="item_id">Item *</label>
+            <select name="item_id" id="item_id" class="form-control" required>
+                <option value="">Select Item</option>
+                {% for item in items %}
+                <option value="{{ item.id }}">{{ item.sku }} - {{ item.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="location_id">Location *</label>
+            <select name="location_id" id="location_id" class="form-control" required>
+                <option value="">Select Location</option>
+                {% for location in locations %}
+                <option value="{{ location.id }}">{{ location.name }} ({{ location.code }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="quantity">Quantity Adjustment * (positive to add, negative to subtract)</label>
+            <input type="number" name="quantity" id="quantity" class="form-control" required>
+            <small class="text-muted">Example: Enter 100 to add 100 units, or -50 to remove 50 units</small>
+        </div>
+
+        <div class="form-group">
+            <label for="notes">Notes</label>
+            <textarea name="notes" id="notes" class="form-control" placeholder="Reason for adjustment"></textarea>
+        </div>
+
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary">Adjust Inventory</button>
+            <a href="{{ url_for('inventory.index') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

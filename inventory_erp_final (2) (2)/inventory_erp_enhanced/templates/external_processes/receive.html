@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Receive External Process{% endblock %}
+{% block content %}
+<div class="header-row">
+    <h1>Receive Items from External Process</h1>
+    <a href="{{ url_for('external_processes.view', id=process.id) }}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Back
+    </a>
+</div>
+
+<div class="section">
+    <h2>Process Details</h2>
+    <div class="row">
+        <div class="col-md-6">
+            <table class="table table-bordered">
+                <tr>
+                    <th style="width: 40%;">Process Number:</th>
+                    <td><strong>{{ process.process_number }}</strong></td>
+                </tr>
+                <tr>
+                    <th>Item:</th>
+                    <td>{{ process.item.sku }} - {{ process.item.name }}</td>
+                </tr>
+                <tr>
+                    <th>Supplier:</th>
+                    <td>{{ process.supplier.name }}</td>
+                </tr>
+                <tr>
+                    <th>Process Type:</th>
+                    <td>{{ process.process_type }}</td>
+                </tr>
+            </table>
+        </div>
+        <div class="col-md-6">
+            <table class="table table-bordered">
+                <tr>
+                    <th style="width: 40%;">Quantity Sent:</th>
+                    <td><strong>{{ process.quantity_sent }}</strong></td>
+                </tr>
+                <tr>
+                    <th>Already Returned:</th>
+                    <td>{{ process.quantity_returned }}</td>
+                </tr>
+                <tr>
+                    <th>Remaining to Receive:</th>
+                    <td><strong class="text-primary">{{ process.quantity_sent - process.quantity_returned }}</strong></td>
+                </tr>
+                <tr>
+                    <th>Status:</th>
+                    <td>
+                        <span class="badge badge-info">{{ process.status }}</span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Receive Items</h2>
+    <p class="text-muted">Record the return of items from external processing</p>
+    
+    <form method="POST" id="receiveForm">
+        <div class="form-group">
+            <label>Quantity to Receive *</label>
+            <input type="number" name="quantity_returned" id="quantity_returned" 
+                   class="form-control" required min="1" 
+                   max="{{ process.quantity_sent - process.quantity_returned }}"
+                   placeholder="Enter quantity received">
+            <small class="text-muted">
+                Maximum: {{ process.quantity_sent - process.quantity_returned }} 
+                (remaining to receive)
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label>Return to Location *</label>
+            <select name="location_id" class="form-control" required>
+                <option value="">Select Location</option>
+                {% for location in locations %}
+                <option value="{{ location.id }}">{{ location.name }}</option>
+                {% endfor %}
+            </select>
+            <small class="text-muted">Where should the items be added to inventory?</small>
+        </div>
+
+        <div class="alert alert-info">
+            <strong>Note:</strong> This will:
+            <ul class="mb-0">
+                <li>Add the received quantity to inventory at the selected location</li>
+                <li>Update the external process status</li>
+                <li>Mark the process as "completed" if all items are received</li>
+            </ul>
+        </div>
+
+        <div class="alert alert-warning">
+            <strong>Important:</strong> If any items are damaged during external processing, 
+            you can record scrap quantities through the <a href="{{ url_for('receipts.new') }}">reception system</a> 
+            by selecting "External Process Return" as the source.
+        </div>
+
+        <div class="mt-3">
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-check"></i> Receive Items
+            </button>
+            <a href="{{ url_for('external_processes.view', id=process.id) }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<style>
+.badge {
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+.badge-info {
+    background-color: #17a2b8;
+    color: white;
+}
+</style>
+
+<script>
+document.getElementById('receiveForm').addEventListener('submit', function(e) {
+    const quantity = parseInt(document.getElementById('quantity_returned').value) || 0;
+    const maxQty = {{ process.quantity_sent - process.quantity_returned }};
+    
+    if (quantity > maxQty) {
+        e.preventDefault();
+        alert(`Cannot receive more than ${maxQty} items (remaining quantity)`);
+        return false;
+    }
+    
+    if (quantity <= 0) {
+        e.preventDefault();
+        alert('Please enter a valid quantity');
+        return false;
+    }
+    
+    // Confirm reception
+    if (!confirm(`Receive ${quantity} item(s) from external processing?`)) {
+        e.preventDefault();
+        return false;
+    }
+});
+</script>
+{% endblock %}

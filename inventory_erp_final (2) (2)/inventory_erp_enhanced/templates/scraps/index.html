@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Scrap Records{% endblock %}
+{% block content %}
+<div class="header-row">
+    <h1>Scrap Records</h1>
+    <a href="{{ url_for('scraps.new') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> New Scrap Record
+    </a>
+</div>
+
+<div class="section">
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Scrap Number</th>
+                    <th>Item</th>
+                    <th>Location</th>
+                    <th>Quantity</th>
+                    <th>Reason</th>
+                    <th>Source</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for scrap in scraps %}
+                <tr>
+                    <td><a href="{{ url_for('scraps.view', id=scrap.id) }}">{{ scrap.scrap_number }}</a></td>
+                    <td>{{ scrap.item.sku }} - {{ scrap.item.name }}</td>
+                    <td>{{ scrap.location.name }}</td>
+                    <td>{{ scrap.quantity }}</td>
+                    <td>{{ scrap.reason or 'N/A' }}</td>
+                    <td>
+                        <span class="badge badge-info">{{ scrap.source_type }}</span>
+                    </td>
+                    <td>{{ scrap.scrap_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <a href="{{ url_for('scraps.view', id=scrap.id) }}" class="btn btn-sm btn-info">View</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center">No scrap records found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

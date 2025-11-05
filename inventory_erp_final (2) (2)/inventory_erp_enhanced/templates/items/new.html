@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}New Item - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Create New Item</h1>
+
+<div class="section">
+    <form method="POST" action="{{ url_for('items.new') }}">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="category_id">Category *</label>
+                    <select name="category_id" id="category_id" class="form-control" required>
+                        <option value="">Select Category</option>
+                        {% for category in categories %}
+                        <option value="{{ category.id }}">{{ category.name }} ({{ category.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="type_id">Type *</label>
+                    <select name="type_id" id="type_id" class="form-control" required>
+                        <option value="">Select Type</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="material_id">Material</label>
+                    <select name="material_id" id="material_id" class="form-control">
+                        <option value="">None</option>
+                        {% for material in materials %}
+                        <option value="{{ material.id }}">{{ material.name }} ({{ material.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="name">Item Name *</label>
+                    <input type="text" name="name" id="name" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="neo_code">NEO Code</label>
+                    <input type="text" name="neo_code" id="neo_code" class="form-control" maxlength="50">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea name="description" id="description" class="form-control"></textarea>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="unit_of_measure">Unit of Measure</label>
+                    <input type="text" name="unit_of_measure" id="unit_of_measure" class="form-control" value="PCS">
+                </div>
+
+                <h4>Dimensions (for CNC parts)</h4>
+                <div class="form-group">
+                    <label for="diameter">Diameter (mm)</label>
+                    <input type="number" name="diameter" id="diameter" class="form-control" step="0.01">
+                </div>
+
+                <div class="form-group">
+                    <label for="length">Length (mm)</label>
+                    <input type="number" name="length" id="length" class="form-control" step="0.01">
+                </div>
+
+                <div class="form-group">
+                    <label for="width">Width (mm)</label>
+                    <input type="number" name="width" id="width" class="form-control" step="0.01">
+                </div>
+
+                <div class="form-group">
+                    <label for="height">Height (mm)</label>
+                    <input type="number" name="height" id="height" class="form-control" step="0.01">
+                </div>
+
+                <div class="form-group">
+                    <label for="weight_kg">Weight (kg)</label>
+                    <input type="number" name="weight_kg" id="weight_kg" class="form-control" step="0.001">
+                </div>
+
+                <h4>Inventory Settings</h4>
+                <div class="form-group">
+                    <label for="reorder_level">Reorder Level</label>
+                    <input type="number" name="reorder_level" id="reorder_level" class="form-control" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="reorder_quantity">Reorder Quantity</label>
+                    <input type="number" name="reorder_quantity" id="reorder_quantity" class="form-control" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="cost">Cost (EUR)</label>
+                    <input type="number" name="cost" id="cost" class="form-control" step="0.01" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="price">Selling Price (EUR)</label>
+                    <input type="number" name="price" id="price" class="form-control" step="0.01" value="0">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary">Create Item</button>
+            <a href="{{ url_for('items.index') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    $('#category_id').change(function() {
+        var categoryId = $(this).val();
+        if (categoryId) {
+            $.get('/items/api/types/' + categoryId, function(data) {
+                var typeSelect = $('#type_id');
+                typeSelect.empty();
+                typeSelect.append('<option value="">Select Type</option>');
+                $.each(data, function(index, type) {
+                    typeSelect.append('<option value="' + type.id + '">' + type.name + ' (' + type.code + ')</option>');
+                });
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

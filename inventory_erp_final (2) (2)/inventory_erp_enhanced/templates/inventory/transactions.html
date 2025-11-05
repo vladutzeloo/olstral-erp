@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Transactions - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Inventory Transactions</h1>
+
+<div class="action-links">
+    <a href="{{ url_for('inventory.index') }}" class="btn btn-secondary">Back to Inventory</a>
+</div>
+
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Item</th>
+                <th>Location</th>
+                <th>Type</th>
+                <th>Quantity</th>
+                <th>Reference</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for trans in transactions %}
+            <tr>
+                <td>{{ trans.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td><a href="{{ url_for('items.view', id=trans.item.id) }}">{{ trans.item.sku }}</a></td>
+                <td>{{ trans.location.name }}</td>
+                <td><span class="badge badge-{{ trans.transaction_type }}">{{ trans.transaction_type.replace('_', ' ').title() }}</span></td>
+                <td {% if trans.quantity < 0 %}class="text-danger"{% else %}class="text-success"{% endif %}>
+                    <strong>{{ trans.quantity }}</strong>
+                </td>
+                <td>{{ trans.reference_type or '-' }}</td>
+                <td>{{ trans.notes or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

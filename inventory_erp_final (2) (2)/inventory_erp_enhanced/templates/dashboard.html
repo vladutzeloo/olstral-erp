@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <h3>Total Items</h3>
+        <div class="card-value">{{ total_items }}</div>
+        <a href="{{ url_for('items.index') }}" class="card-link">View All →</a>
+    </div>
+
+    <div class="card">
+        <h3>Inventory Value</h3>
+        <div class="card-value">€{{ "%.2f"|format(inventory_value) }}</div>
+        <a href="{{ url_for('reports.inventory_valuation') }}" class="card-link">View Report →</a>
+    </div>
+
+    <div class="card alert-card">
+        <h3>Low Stock Items</h3>
+        <div class="card-value">{{ low_stock_count }}</div>
+        <a href="{{ url_for('reports.low_stock') }}" class="card-link">View Details →</a>
+    </div>
+
+    <div class="card">
+        <h3>Pending POs</h3>
+        <div class="card-value">{{ pending_pos }}</div>
+        <a href="{{ url_for('purchase_orders.index') }}" class="card-link">View All →</a>
+    </div>
+
+    <div class="card">
+        <h3>Active External Processes</h3>
+        <div class="card-value">{{ pending_processes }}</div>
+        <a href="{{ url_for('external_processes.index') }}" class="card-link">View All →</a>
+    </div>
+</div>
+
+{% if low_stock_items %}
+<div class="section">
+    <h2>Critical: Low Stock Items</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>SKU</th>
+                <th>Item</th>
+                <th>Current Qty</th>
+                <th>Reorder Level</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item_data in low_stock_items %}
+            <tr>
+                <td>{{ item_data.item.sku }}</td>
+                <td>{{ item_data.item.name }}</td>
+                <td class="text-danger">{{ item_data.current_qty }}</td>
+                <td>{{ item_data.reorder_level }}</td>
+                <td>
+                    <a href="{{ url_for('purchase_orders.new') }}" class="btn btn-sm btn-primary">Create PO</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="section">
+            <h2>Recent Purchase Orders</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>PO Number</th>
+                        <th>Supplier</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for po in recent_pos %}
+                    <tr>
+                        <td><a href="{{ url_for('purchase_orders.view', id=po.id) }}">{{ po.po_number }}</a></td>
+                        <td>{{ po.supplier.name }}</td>
+                        <td><span class="badge badge-{{ po.status }}">{{ po.status }}</span></td>
+                        <td>€{{ "%.2f"|format(po.total_amount) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="section">
+            <h2>Recent Shipments</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Shipment #</th>
+                        <th>Customer</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for shipment in recent_shipments %}
+                    <tr>
+                        <td><a href="{{ url_for('shipments.view', id=shipment.id) }}">{{ shipment.shipment_number }}</a></td>
+                        <td>{{ shipment.customer_name }}</td>
+                        <td><span class="badge badge-{{ shipment.status }}">{{ shipment.status }}</span></td>
+                        <td>{{ shipment.ship_date.strftime('%Y-%m-%d') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

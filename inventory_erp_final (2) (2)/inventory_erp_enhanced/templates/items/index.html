@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Items - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Items</h1>
+
+<div class="action-links">
+    <a href="{{ url_for('items.new') }}" class="btn btn-primary">New Item</a>
+    <a href="{{ url_for('items.categories') }}" class="btn btn-secondary">Manage Categories</a>
+    <a href="{{ url_for('items.types') }}" class="btn btn-secondary">Manage Types</a>
+    <a href="{{ url_for('items.materials') }}" class="btn btn-secondary">Manage Materials</a>
+</div>
+
+<div class="section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>SKU</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Type</th>
+                <th>Material</th>
+                <th>Total Stock</th>
+                <th>Reorder Level</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td><a href="{{ url_for('items.view', id=item.id) }}">{{ item.sku }}</a></td>
+                <td>{{ item.name }}</td>
+                <td>{{ item.category.name }}</td>
+                <td>{{ item.item_type.name }}</td>
+                <td>{{ item.material.name if item.material else '-' }}</td>
+                <td>{{ item.get_total_quantity() }}</td>
+                <td>{{ item.reorder_level }}</td>
+                <td>
+                    <a href="{{ url_for('items.view', id=item.id) }}" class="btn btn-sm btn-primary">View</a>
+                    <a href="{{ url_for('items.edit', id=item.id) }}" class="btn btn-sm btn-secondary">Edit</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
