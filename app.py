@@ -42,7 +42,8 @@ def create_app(config_class=Config):
     from routes.clients import clients_bp
     from routes.reports import reports_bp
     from routes.scraps import scraps_bp
-    
+    from routes.bom import bom_bp
+
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(items_bp, url_prefix='/items')
@@ -54,6 +55,7 @@ def create_app(config_class=Config):
     app.register_blueprint(clients_bp, url_prefix='/clients')
     app.register_blueprint(reports_bp, url_prefix='/reports')
     app.register_blueprint(scraps_bp, url_prefix='/scraps')
+    app.register_blueprint(bom_bp, url_prefix='/bom')
     
     # Create tables
     with app.app_context():
@@ -73,6 +75,8 @@ def create_app(config_class=Config):
     
     return app
 
+# Create app instance for gunicorn
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
     app.run(debug=True, host='0.0.0.0', port=5000)

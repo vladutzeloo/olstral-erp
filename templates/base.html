@@ -4,12 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Inventory ERP{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     {% if current_user.is_authenticated %}
     <nav class="navbar">
-        <div class="nav-brand">Inventory ERP</div>
+        <div class="nav-brand">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="OLSTAL Logo" class="nav-logo">
+            <span>Inventory ERP</span>
+        </div>
         <ul class="nav-menu">
             <li><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
             <li class="dropdown">
@@ -34,6 +38,13 @@
                     <li><a href="{{ url_for('inventory.transactions') }}">Transactions</a></li>
                     <li><a href="{{ url_for('scraps.index') }}">Scrap Records</a></li>
                     <li><a href="{{ url_for('scraps.new') }}">New Scrap</a></li>
+                </ul>
+            </li>
+            <li class="dropdown">
+                <a href="#">Production ▼</a>
+                <ul class="dropdown-menu">
+                    <li><a href="{{ url_for('bom.index') }}">Bill of Materials</a></li>
+                    <li><a href="{{ url_for('bom.new') }}">New BOM</a></li>
                 </ul>
             </li>
             <li class="dropdown">

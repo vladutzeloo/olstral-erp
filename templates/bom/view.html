@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}BOM {{ bom.bom_number }} - Inventory ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Bill of Materials: {{ bom.bom_number }}</h1>
+    <div class="page-actions">
+        {% if bom.status == 'draft' %}
+        <a href="{{ url_for('bom.edit', id=bom.id) }}" class="btn btn-warning">Edit</a>
+        <form method="POST" action="{{ url_for('bom.activate', id=bom.id) }}" style="display: inline;">
+            <button type="submit" class="btn btn-success">Activate</button>
+        </form>
+        <form method="POST" action="{{ url_for('bom.delete', id=bom.id) }}" style="display: inline;" onsubmit="return confirm('Delete this BOM?');">
+            <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+        {% endif %}
+        <form method="POST" action="{{ url_for('bom.copy_bom', id=bom.id) }}" style="display: inline;">
+            <button type="submit" class="btn btn-secondary">Copy BOM</button>
+        </form>
+        <a href="{{ url_for('bom.index') }}" class="btn btn-secondary">Back to BOMs</a>
+    </div>
+</div>
+
+<div class="card">
+    <h2>BOM Information</h2>
+    <table class="info-table">
+        <tr>
+            <th>BOM Number:</th>
+            <td>{{ bom.bom_number }}</td>
+            <th>Version:</th>
+            <td>{{ bom.version }}</td>
+        </tr>
+        <tr>
+            <th>Status:</th>
+            <td>
+                <span class="badge badge-{{ 'success' if bom.status == 'active' else 'warning' if bom.status == 'draft' else 'secondary' }}">
+                    {{ bom.status|upper }}
+                </span>
+            </td>
+            <th>Created:</th>
+            <td>{{ bom.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+        <tr>
+            <th>Finished Item:</th>
+            <td colspan="3">
+                <strong>{{ bom.finished_item.sku }}</strong> - {{ bom.finished_item.name }}
+            </td>
+        </tr>
+        <tr>
+            <th>Production Time:</th>
+            <td>{{ bom.production_time_minutes or '-' }} minutes</td>
+            <th>Scrap Factor:</th>
+            <td>{{ bom.scrap_factor }}%</td>
+        </tr>
+        {% if bom.notes %}
+        <tr>
+            <th>Notes:</th>
+            <td colspan="3">{{ bom.notes }}</td>
+        </tr>
+        {% endif %}
+        {% if bom.status == 'active' and bom.activated_at %}
+        <tr>
+            <th>Activated:</th>
+            <td colspan="3">{{ bom.activated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+        {% endif %}
+    </table>
+</div>
+
+<div class="card">
+    <h2>Components</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Seq</th>
+                <th>Component SKU</th>
+                <th>Component Name</th>
+                <th>Quantity</th>
+                <th>Unit Cost</th>
+                <th>Total Cost</th>
+                <th>UOM</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if bom.components %}
+                {% set total_cost = 0 %}
+                {% for comp in bom.components|sort(attribute='sequence') %}
+                <tr>
+                    <td>{{ comp.sequence }}</td>
+                    <td><strong>{{ comp.component.sku }}</strong></td>
+                    <td>{{ comp.component.name }}</td>
+                    <td>{{ comp.quantity }}</td>
+                    <td>${{ "%.2f"|format(comp.component.cost) }}</td>
+                    <td>${{ "%.2f"|format(comp.get_total_cost()) }}</td>
+                    <td>{{ comp.unit_of_measure or comp.component.unit_of_measure }}</td>
+                    <td>{{ comp.notes or '-' }}</td>
+                </tr>
+                {% set total_cost = total_cost + comp.get_total_cost() %}
+                {% endfor %}
+                <tr class="total-row">
+                    <td colspan="5" style="text-align: right;"><strong>Total Material Cost:</strong></td>
+                    <td><strong>${{ "%.2f"|format(total_cost) }}</strong></td>
+                    <td colspan="2"></td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="8" class="text-center">No components added yet.</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h2>Cost Summary</h2>
+    <table class="info-table">
+        <tr>
+            <th>Material Cost:</th>
+            <td>${{ "%.2f"|format(bom.calculate_total_cost()) }}</td>
+        </tr>
+        <tr>
+            <th>Scrap Factor ({{ bom.scrap_factor }}%):</th>
+            <td>${{ "%.2f"|format(bom.calculate_total_cost() * bom.scrap_factor / 100) }}</td>
+        </tr>
+        <tr>
+            <th><strong>Total Est. Cost:</strong></th>
+            <td><strong>${{ "%.2f"|format(bom.calculate_total_cost() * (1 + bom.scrap_factor / 100)) }}</strong></td>
+        </tr>
+    </table>
+</div>
+
+<style>
+.total-row {
+    background-color: #f0f0f0;
+    font-weight: bold;
+}
+</style>
+{% endblock %}

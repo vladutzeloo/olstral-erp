@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Bill of Materials - Inventory ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Bill of Materials</h1>
+    <div class="page-actions">
+        <a href="{{ url_for('bom.new') }}" class="btn btn-primary">New BOM</a>
+    </div>
+</div>
+
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>BOM Number</th>
+                <th>Finished Item</th>
+                <th>Version</th>
+                <th>Status</th>
+                <th>Components</th>
+                <th>Est. Cost</th>
+                <th>Production Time</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if boms %}
+                {% for bom in boms %}
+                <tr>
+                    <td><a href="{{ url_for('bom.view', id=bom.id) }}">{{ bom.bom_number }}</a></td>
+                    <td>
+                        <strong>{{ bom.finished_item.sku }}</strong><br>
+                        <small>{{ bom.finished_item.name }}</small>
+                    </td>
+                    <td>{{ bom.version }}</td>
+                    <td>
+                        <span class="badge badge-{{ 'success' if bom.status == 'active' else 'warning' if bom.status == 'draft' else 'secondary' }}">
+                            {{ bom.status|upper }}
+                        </span>
+                    </td>
+                    <td>{{ bom.components|length }} items</td>
+                    <td>${{ "%.2f"|format(bom.calculate_total_cost()) }}</td>
+                    <td>{{ bom.production_time_minutes or '-' }} min</td>
+                    <td>{{ bom.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        <a href="{{ url_for('bom.view', id=bom.id) }}" class="btn btn-sm btn-info">View</a>
+                        {% if bom.status == 'draft' %}
+                        <a href="{{ url_for('bom.edit', id=bom.id) }}" class="btn btn-sm btn-warning">Edit</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="9" class="text-center">
+                        <p>No BOMs found.</p>
+                        <a href="{{ url_for('bom.new') }}" class="btn btn-primary">Create First BOM</a>
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
