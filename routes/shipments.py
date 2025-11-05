@@ -2,15 +2,71 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from datetime import datetime
 from extensions import db
-from models import Shipment, ShipmentItem, Location, Item, InventoryLocation, InventoryTransaction
+from models import Shipment, ShipmentItem, Location, Item, InventoryLocation, InventoryTransaction, User, Client
+from filter_utils import TableFilter
 
 shipments_bp = Blueprint('shipments', __name__)
 
 @shipments_bp.route('/')
 @login_required
 def index():
-    shipments = Shipment.query.order_by(Shipment.created_at.desc()).all()
-    return render_template('shipments/index.html', shipments=shipments)
+    # Initialize filter
+    table_filter = TableFilter(Shipment, request.args)
+
+    # Add filters
+    table_filter.add_filter('from_location_id', operator='eq')
+    table_filter.add_filter('client_id', operator='eq')
+    table_filter.add_filter('status', operator='eq')
+    table_filter.add_filter('created_by', operator='eq')
+    table_filter.add_date_filter('ship_date')
+    table_filter.add_search(['shipment_number', 'customer_name', 'tracking_number', 'notes'])
+
+    # Apply filters
+    query = Shipment.query
+    query = table_filter.apply(query)
+    shipments = query.order_by(Shipment.created_at.desc()).all()
+
+    # Filter configuration for template
+    filter_config = {
+        'search_fields': True,
+        'selects': [
+            {
+                'name': 'from_location_id',
+                'label': 'From Location',
+                'options': [{'value': loc.id, 'label': f"{loc.code} - {loc.name}"}
+                           for loc in Location.query.filter_by(is_active=True).order_by(Location.code).all()]
+            },
+            {
+                'name': 'client_id',
+                'label': 'Client',
+                'options': [{'value': c.id, 'label': c.name} for c in Client.query.order_by(Client.name).all()]
+            },
+            {
+                'name': 'status',
+                'label': 'Status',
+                'options': [
+                    {'value': 'pending', 'label': 'Pending'},
+                    {'value': 'shipped', 'label': 'Shipped'},
+                    {'value': 'delivered', 'label': 'Delivered'},
+                    {'value': 'cancelled', 'label': 'Cancelled'}
+                ]
+            },
+            {
+                'name': 'created_by',
+                'label': 'Created By',
+                'options': [{'value': u.id, 'label': u.username} for u in User.query.order_by(User.username).all()]
+            }
+        ],
+        'date_ranges': [
+            {'name': 'ship_date', 'label': 'Ship Date'}
+        ],
+        'summary': table_filter.get_filter_summary()
+    }
+
+    return render_template('shipments/index.html',
+                         shipments=shipments,
+                         filter_config=filter_config,
+                         current_filters=table_filter.get_active_filters())
 
 @shipments_bp.route('/new', methods=['GET', 'POST'])
 @login_required

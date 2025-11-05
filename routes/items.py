@@ -6,74 +6,216 @@ from openpyxl import Workbook
 import io
 from extensions import db
 from models import Item, Category, ItemType, Material, MaterialSeries, InventoryLocation, Location
+from filter_utils import TableFilter
 
 items_bp = Blueprint('items', __name__)
 
 @items_bp.route('/')
 @login_required
 def index():
-    items = Item.query.filter_by(is_active=True).all()
-    return render_template('items/index.html', items=items)
+    # Initialize filter
+    table_filter = TableFilter(Item, request.args)
+
+    # Configure filters
+    table_filter.add_filter('category_id', operator='eq')
+    table_filter.add_filter('type_id', operator='eq')
+    table_filter.add_filter('material_id', operator='eq')
+    table_filter.add_filter('is_active', operator='eq')
+    table_filter.add_search(['sku', 'name', 'description', 'neo_code'])
+
+    # Apply filters
+    query = Item.query
+    query = table_filter.apply(query)
+    items = query.order_by(Item.sku).all()
+
+    # Get options for dropdowns
+    categories = Category.query.order_by(Category.name).all()
+    types = ItemType.query.order_by(ItemType.name).all()
+    materials = Material.query.order_by(Material.name).all()
+
+    # Filter config
+    filter_config = {
+        'search_fields': True,
+        'selects': [
+            {
+                'name': 'category_id',
+                'label': 'Category',
+                'options': [{'value': c.id, 'label': c.name} for c in categories]
+            },
+            {
+                'name': 'type_id',
+                'label': 'Type',
+                'options': [{'value': t.id, 'label': t.name} for t in types]
+            },
+            {
+                'name': 'material_id',
+                'label': 'Material',
+                'options': [{'value': m.id, 'label': m.name} for m in materials]
+            },
+            {
+                'name': 'is_active',
+                'label': 'Status',
+                'options': [
+                    {'value': '1', 'label': 'Active'},
+                    {'value': '0', 'label': 'Inactive'},
+                ]
+            }
+        ],
+        'date_ranges': [],
+        'summary': table_filter.get_filter_summary()
+    }
+
+    return render_template('items/index.html',
+                         items=items,
+                         filter_config=filter_config,
+                         current_filters=table_filter.get_active_filters())
+
+def generate_code_from_name(name, max_length=10):
+    """Generate a code from a name by taking first letters and removing special chars"""
+    import re
+    # Remove special characters and split into words
+    words = re.sub(r'[^a-zA-Z0-9\s]', '', name).upper().split()
+
+    if not words:
+        return "GEN"
+
+    if len(words) == 1:
+        # Single word: take first max_length chars
+        return words[0][:max_length]
+    else:
+        # Multiple words: take first letter of each word
+        code = ''.join(word[0] for word in words if word)
+        if len(code) < 3:
+            # If too short, add more letters from first word
+            code = words[0][:max_length]
+        return code[:max_length]
+
+def get_or_create_category(name):
+    """Get existing category by name or create a new one"""
+    category = Category.query.filter(db.func.lower(Category.name) == db.func.lower(name)).first()
+    if category:
+        return category
+
+    # Generate unique code
+    base_code = generate_code_from_name(name)
+    code = base_code
+    counter = 1
+    while Category.query.filter_by(code=code).first():
+        code = f"{base_code[:7]}{counter:02d}"
+        counter += 1
+
+    category = Category(code=code, name=name.strip())
+    db.session.add(category)
+    db.session.flush()
+    return category
+
+def get_or_create_item_type(name, category):
+    """Get existing item type by name and category or create a new one"""
+    item_type = ItemType.query.filter(
+        db.func.lower(ItemType.name) == db.func.lower(name),
+        ItemType.category_id == category.id
+    ).first()
+    if item_type:
+        return item_type
+
+    # Generate unique code
+    base_code = generate_code_from_name(name)
+    code = base_code
+    counter = 1
+    while ItemType.query.filter_by(code=code).first():
+        code = f"{base_code[:7]}{counter:02d}"
+        counter += 1
+
+    item_type = ItemType(code=code, name=name.strip(), category_id=category.id)
+    db.session.add(item_type)
+    db.session.flush()
+    return item_type
+
+def get_or_create_material(name):
+    """Get existing material by name or create a new one"""
+    if not name or not name.strip():
+        return None
+
+    material = Material.query.filter(db.func.lower(Material.name) == db.func.lower(name)).first()
+    if material:
+        return material
+
+    # Generate unique code
+    base_code = generate_code_from_name(name)
+    code = base_code
+    counter = 1
+    while Material.query.filter_by(code=code).first():
+        code = f"{base_code[:7]}{counter:02d}"
+        counter += 1
+
+    material = Material(code=code, name=name.strip())
+    db.session.add(material)
+    db.session.flush()
+    return material
 
 @items_bp.route('/new', methods=['GET', 'POST'])
 @login_required
 def new():
     if request.method == 'POST':
-        category_id = request.form.get('category_id')
-        type_id = request.form.get('type_id')
-        material_id = request.form.get('material_id')
-        
-        category = Category.query.get(category_id)
-        item_type = ItemType.query.get(type_id)
-        material = Material.query.get(material_id) if material_id else None
-        
-        # Generate SKU
-        sku_parts = [category.code, item_type.code]
-        if material:
-            sku_parts.append(material.code)
-        
-        # Get next sequence number
-        base_sku = '-'.join(sku_parts)
-        last_item = Item.query.filter(Item.sku.like(f'{base_sku}-%')).order_by(Item.sku.desc()).first()
-        
-        if last_item:
-            last_seq = int(last_item.sku.split('-')[-1])
-            seq_num = last_seq + 1
-        else:
-            seq_num = 1
-        
-        sku = f"{base_sku}-{seq_num:04d}"
-        
-        # Create item
-        item = Item(
-            sku=sku,
-            neo_code=request.form.get('neo_code'),
-            name=request.form.get('name'),
-            description=request.form.get('description'),
-            category_id=category_id,
-            type_id=type_id,
-            material_id=material_id if material_id else None,
-            unit_of_measure=request.form.get('unit_of_measure', 'PCS'),
-            diameter=float(request.form.get('diameter')) if request.form.get('diameter') else None,
-            length=float(request.form.get('length')) if request.form.get('length') else None,
-            width=float(request.form.get('width')) if request.form.get('width') else None,
-            height=float(request.form.get('height')) if request.form.get('height') else None,
-            weight_kg=float(request.form.get('weight_kg')) if request.form.get('weight_kg') else None,
-            reorder_level=int(request.form.get('reorder_level', 0)),
-            reorder_quantity=int(request.form.get('reorder_quantity', 0)),
-            cost=float(request.form.get('cost', 0)),
-            price=float(request.form.get('price', 0))
-        )
-        
-        db.session.add(item)
-        db.session.commit()
-        
-        flash(f'Item {sku} created successfully!', 'success')
-        return redirect(url_for('items.index'))
-    
-    categories = Category.query.all()
-    materials = Material.query.all()
-    return render_template('items/new.html', categories=categories, materials=materials)
+        try:
+            # Get or create category, type, and material
+            category = get_or_create_category(request.form.get('category'))
+            item_type = get_or_create_item_type(request.form.get('type'), category)
+            material = get_or_create_material(request.form.get('material'))
+
+            # Generate SKU
+            sku_parts = [category.code, item_type.code]
+            if material:
+                sku_parts.append(material.code)
+
+            # Get next sequence number
+            base_sku = '-'.join(sku_parts)
+            last_item = Item.query.filter(Item.sku.like(f'{base_sku}-%')).order_by(Item.sku.desc()).first()
+
+            if last_item:
+                last_seq = int(last_item.sku.split('-')[-1])
+                seq_num = last_seq + 1
+            else:
+                seq_num = 1
+
+            sku = f"{base_sku}-{seq_num:04d}"
+
+            # Create item
+            item = Item(
+                sku=sku,
+                neo_code=request.form.get('neo_code'),
+                name=request.form.get('name'),
+                description=request.form.get('description'),
+                category_id=category.id,
+                type_id=item_type.id,
+                material_id=material.id if material else None,
+                unit_of_measure=request.form.get('unit_of_measure', 'PCS'),
+                diameter=float(request.form.get('diameter')) if request.form.get('diameter') else None,
+                length=float(request.form.get('length')) if request.form.get('length') else None,
+                width=float(request.form.get('width')) if request.form.get('width') else None,
+                height=float(request.form.get('height')) if request.form.get('height') else None,
+                weight_kg=float(request.form.get('weight_kg')) if request.form.get('weight_kg') else None,
+                reorder_level=int(request.form.get('reorder_level', 0)),
+                reorder_quantity=int(request.form.get('reorder_quantity', 0)),
+                cost=float(request.form.get('cost', 0)),
+                price=float(request.form.get('price', 0))
+            )
+
+            db.session.add(item)
+            db.session.commit()
+
+            flash(f'Item {sku} created successfully!', 'success')
+            return redirect(url_for('items.index'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating item: {str(e)}', 'danger')
+            return redirect(url_for('items.new'))
+
+    # GET request - load all existing categories, types, materials for autocomplete
+    categories = Category.query.order_by(Category.name).all()
+    types = ItemType.query.order_by(ItemType.name).all()
+    materials = Material.query.order_by(Material.name).all()
+    return render_template('items/new.html', categories=categories, types=types, materials=materials)
 
 @items_bp.route('/<int:id>')
 @login_required

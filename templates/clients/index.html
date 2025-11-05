@@ -1,10 +1,15 @@
 {% extends "base.html" %}
+{% from "_filter_component.html" import render_filters %}
+
 {% block title %}Clients{% endblock %}
 {% block content %}
 <h1>Clients</h1>
 <div class="action-links">
     <a href="{{ url_for('clients.new') }}" class="btn btn-primary">New Client</a>
 </div>
+
+{{ render_filters(filter_config, url_for('clients.index'), current_filters) }}
+
 <div class="section">
     <table class="data-table">
         <thead>

@@ -2,15 +2,71 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from datetime import datetime
 from extensions import db
-from models import Scrap, Item, Location, InventoryLocation, InventoryTransaction
+from models import Scrap, Item, Location, InventoryLocation, InventoryTransaction, User
+from filter_utils import TableFilter
 
 scraps_bp = Blueprint('scraps', __name__)
 
 @scraps_bp.route('/')
 @login_required
 def index():
-    scraps = Scrap.query.order_by(Scrap.created_at.desc()).all()
-    return render_template('scraps/index.html', scraps=scraps)
+    # Initialize filter
+    table_filter = TableFilter(Scrap, request.args)
+
+    # Add filters
+    table_filter.add_filter('item_id', operator='eq')
+    table_filter.add_filter('location_id', operator='eq')
+    table_filter.add_filter('source_type', operator='eq')
+    table_filter.add_filter('scrapped_by', operator='eq')
+    table_filter.add_date_filter('scrap_date')
+    table_filter.add_search(['scrap_number', 'reason', 'notes'])
+
+    # Apply filters
+    query = Scrap.query
+    query = table_filter.apply(query)
+    scraps = query.order_by(Scrap.created_at.desc()).all()
+
+    # Filter configuration for template
+    filter_config = {
+        'search_fields': True,
+        'selects': [
+            {
+                'name': 'item_id',
+                'label': 'Item',
+                'options': [{'value': item.id, 'label': f"{item.sku} - {item.name}"}
+                           for item in Item.query.filter_by(is_active=True).order_by(Item.sku).all()]
+            },
+            {
+                'name': 'location_id',
+                'label': 'Location',
+                'options': [{'value': loc.id, 'label': f"{loc.code} - {loc.name}"}
+                           for loc in Location.query.filter_by(is_active=True).order_by(Location.code).all()]
+            },
+            {
+                'name': 'source_type',
+                'label': 'Source Type',
+                'options': [
+                    {'value': 'receipt', 'label': 'Receipt'},
+                    {'value': 'warehouse', 'label': 'Warehouse'},
+                    {'value': 'production', 'label': 'Production'}
+                ]
+            },
+            {
+                'name': 'scrapped_by',
+                'label': 'Scrapped By',
+                'options': [{'value': u.id, 'label': u.username} for u in User.query.order_by(User.username).all()]
+            }
+        ],
+        'date_ranges': [
+            {'name': 'scrap_date', 'label': 'Scrap Date'}
+        ],
+        'summary': table_filter.get_filter_summary()
+    }
+
+    return render_template('scraps/index.html',
+                         scraps=scraps,
+                         filter_config=filter_config,
+                         current_filters=table_filter.get_active_filters())
 
 @scraps_bp.route('/new', methods=['GET', 'POST'])
 @login_required

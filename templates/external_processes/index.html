@@ -1,8 +1,10 @@
 {% extends "base.html" %}
-{% block title %}External Processes{% endblock %}
+{% from "_filter_component.html" import render_filters %}
+
+{% block title %}External Processing{% endblock %}
 {% block content %}
 <div class="header-row">
-    <h1>External Processes</h1>
+    <h1>External Processing</h1>
     <a href="{{ url_for('external_processes.new') }}" class="btn btn-primary">
         <i class="fas fa-plus"></i> New External Process
     </a>
@@ -10,6 +12,8 @@
 
 <div class="section">
     <p class="text-muted">Track items sent to external suppliers for processing (plating, heat treatment, painting, etc.)</p>
+
+{{ render_filters(filter_config, url_for('external_processes.index'), current_filters) }}
     
     <div class="table-responsive">
         <table class="table table-striped">
