@@ -105,16 +105,35 @@ class Item(db.Model):
 
 class Location(db.Model):
     __tablename__ = 'locations'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(20), unique=True, nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    type = db.Column(db.String(50))  # warehouse, production, shipping, etc.
+    type = db.Column(db.String(50))  # warehouse, production, shipping, buffer, transit
+    zone = db.Column(db.String(50))  # Physical zone/area (e.g., "Zone A", "Receiving", "Aisle 3")
+    capacity = db.Column(db.Integer)  # Maximum units capacity (optional)
     address = db.Column(db.String(255))
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     inventory = db.relationship('InventoryLocation', backref='location', lazy=True)
+
+    def get_current_quantity(self):
+        """Get total quantity of all items in this location"""
+        return sum(inv.quantity for inv in self.inventory)
+
+    def get_capacity_percentage(self):
+        """Get capacity utilization percentage"""
+        if not self.capacity:
+            return None
+        current = self.get_current_quantity()
+        return (current / self.capacity * 100) if self.capacity > 0 else 0
+
+    def is_over_capacity(self):
+        """Check if location is over capacity"""
+        if not self.capacity:
+            return False
+        return self.get_current_quantity() > self.capacity
 
 class InventoryLocation(db.Model):
     __tablename__ = 'inventory_locations'
@@ -303,6 +322,28 @@ class InventoryTransaction(db.Model):
     
     item = db.relationship('Item')
     location = db.relationship('Location')
+
+class StockMovement(db.Model):
+    __tablename__ = 'stock_movements'
+
+    id = db.Column(db.Integer, primary_key=True)
+    movement_number = db.Column(db.String(50), unique=True, nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    from_location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
+    to_location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    movement_type = db.Column(db.String(50), default='transfer')  # transfer, relocation, rebalance
+    reason = db.Column(db.String(200))  # Why the move happened
+    status = db.Column(db.String(20), default='completed')  # pending, in_transit, completed, cancelled
+    moved_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    moved_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    item = db.relationship('Item', backref='stock_movements')
+    from_location = db.relationship('Location', foreign_keys=[from_location_id])
+    to_location = db.relationship('Location', foreign_keys=[to_location_id])
+    user = db.relationship('User', foreign_keys=[moved_by])
 
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'

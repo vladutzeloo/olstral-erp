@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Move Stock - Inventory ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Move Stock</h1>
+    <a href="{{ url_for('stock_movements.index') }}" class="btn btn-secondary">Back to Movements</a>
+</div>
+
+<div class="card">
+    <form method="POST" action="{{ url_for('stock_movements.new') }}" id="move-stock-form">
+        <div class="form-section">
+            <h3>Movement Details</h3>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="item_id">Item *</label>
+                    <select id="item_id" name="item_id" class="form-control" required onchange="updateStockInfo()">
+                        <option value="">Select item...</option>
+                        {% for item in items %}
+                        <option value="{{ item.id }}">{{ item.sku }} - {{ item.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="movement_type">Movement Type</label>
+                    <select id="movement_type" name="movement_type" class="form-control">
+                        <option value="transfer">Transfer</option>
+                        <option value="relocation">Relocation</option>
+                        <option value="rebalance">Rebalance</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="from_location_id">From Location *</label>
+                    <select id="from_location_id" name="from_location_id" class="form-control" required onchange="updateStockInfo()">
+                        <option value="">Select source location...</option>
+                        {% for location in locations %}
+                        <option value="{{ location.id }}">
+                            {{ location.code }} - {{ location.name }}
+                            {% if location.zone %}({{ location.zone }}){% endif %}
+                            - {{ location.type|upper }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div id="from-stock-info" class="stock-info"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="to_location_id">To Location *</label>
+                    <select id="to_location_id" name="to_location_id" class="form-control" required onchange="updateCapacityInfo()">
+                        <option value="">Select destination location...</option>
+                        {% for location in locations %}
+                        <option value="{{ location.id }}">
+                            {{ location.code }} - {{ location.name }}
+                            {% if location.zone %}({{ location.zone }}){% endif %}
+                            - {{ location.type|upper }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div id="to-capacity-info" class="stock-info"></div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="quantity">Quantity to Move *</label>
+                    <input type="number" id="quantity" name="quantity" class="form-control" min="1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="reason">Reason</label>
+                    <input type="text" id="reason" name="reason" class="form-control"
+                           placeholder="e.g., Production requirement, Space optimization">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea id="notes" name="notes" class="form-control" rows="3"></textarea>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Move Stock</button>
+            <a href="{{ url_for('stock_movements.index') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function updateStockInfo() {
+    const itemId = document.getElementById('item_id').value;
+    const fromLocationId = document.getElementById('from_location_id').value;
+
+    if (itemId && fromLocationId) {
+        fetch(`/stock-movements/api/available-stock?item_id=${itemId}&location_id=${fromLocationId}`)
+            .then(response => response.json())
+            .then(data => {
+                const infoDiv = document.getElementById('from-stock-info');
+                if (data.available_quantity !== undefined) {
+                    infoDiv.innerHTML = `<span class="info-badge ${data.available_quantity > 0 ? 'success' : 'warning'}">
+                        Available: ${data.available_quantity} units
+                    </span>`;
+                    document.getElementById('quantity').max = data.available_quantity;
+                }
+            });
+    }
+}
+
+function updateCapacityInfo() {
+    const toLocationId = document.getElementById('to_location_id').value;
+
+    if (toLocationId) {
+        fetch(`/stock-movements/api/location-capacity/${toLocationId}`)
+            .then(response => response.json())
+            .then(data => {
+                const infoDiv = document.getElementById('to-capacity-info');
+                if (data.capacity) {
+                    const percentage = data.capacity_percentage || 0;
+                    const badgeClass = percentage >= 90 ? 'danger' : percentage >= 70 ? 'warning' : 'success';
+                    infoDiv.innerHTML = `<span class="info-badge ${badgeClass}">
+                        Capacity: ${data.current_quantity}/${data.capacity} (${percentage.toFixed(1)}%)
+                        ${data.is_over_capacity ? '⚠️ OVER CAPACITY' : ''}
+                    </span>`;
+                } else {
+                    infoDiv.innerHTML = `<span class="info-badge info">Current stock: ${data.current_quantity} units</span>`;
+                }
+            });
+    }
+}
+</script>
+
+<style>
+.stock-info {
+    margin-top: 5px;
+    font-size: 0.9em;
+}
+.info-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+.info-badge.success {
+    background-color: #d4edda;
+    color: #155724;
+}
+.info-badge.warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+.info-badge.danger {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+.info-badge.info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+</style>
+{% endblock %}
