@@ -24,7 +24,15 @@ body {
     font-size: 24px;
     font-weight: bold;
     padding: 15px 30px;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.nav-logo {
+    height: 40px;
+    width: auto;
+    vertical-align: middle;
 }
 
 .nav-menu {
