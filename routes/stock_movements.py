@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from models import db, StockMovement, Item, Location, InventoryLocation
 from inventory_utils import move_stock, get_stock_by_location, get_movement_history, check_location_capacity
+from filter_utils import TableFilter
 from datetime import datetime
 
 stock_movements_bp = Blueprint('stock_movements', __name__)
@@ -9,23 +10,69 @@ stock_movements_bp = Blueprint('stock_movements', __name__)
 @stock_movements_bp.route('/')
 @login_required
 def index():
-    """List all stock movements"""
-    # Get filters from query params
-    item_id = request.args.get('item_id', type=int)
-    location_id = request.args.get('location_id', type=int)
-    limit = request.args.get('limit', 100, type=int)
+    """List all stock movements with filtering"""
+    # Initialize filter
+    table_filter = TableFilter(StockMovement, request.args)
 
-    movements = get_movement_history(item_id=item_id, location_id=location_id, limit=limit)
+    # Configure filters
+    table_filter.add_filter('item_id', operator='eq')
+    table_filter.add_filter('status', operator='eq')
+    table_filter.add_filter('movement_type', operator='eq')
+    table_filter.add_date_filter('moved_at')
+    table_filter.add_search(['movement_number', 'reason', 'notes'])
 
+    # Apply filters to base query
+    query = StockMovement.query
+    query = table_filter.apply(query)
+
+    # Order and execute
+    movements = query.order_by(StockMovement.moved_at.desc()).limit(500).all()
+
+    # Get filter options
     items = Item.query.filter_by(is_active=True).order_by(Item.sku).all()
     locations = Location.query.filter_by(is_active=True).order_by(Location.code).all()
 
+    # Prepare filter config for template
+    filter_config = {
+        'search_fields': True,
+        'selects': [
+            {
+                'name': 'item_id',
+                'label': 'Item',
+                'options': [{'value': item.id, 'label': f"{item.sku} - {item.name}"} for item in items]
+            },
+            {
+                'name': 'status',
+                'label': 'Status',
+                'options': [
+                    {'value': 'pending', 'label': 'Pending'},
+                    {'value': 'in_transit', 'label': 'In Transit'},
+                    {'value': 'completed', 'label': 'Completed'},
+                    {'value': 'cancelled', 'label': 'Cancelled'},
+                ]
+            },
+            {
+                'name': 'movement_type',
+                'label': 'Type',
+                'options': [
+                    {'value': 'transfer', 'label': 'Transfer'},
+                    {'value': 'relocation', 'label': 'Relocation'},
+                    {'value': 'rebalance', 'label': 'Rebalance'},
+                ]
+            }
+        ],
+        'date_ranges': [
+            {'name': 'moved_at', 'label': 'Movement Date'}
+        ],
+        'summary': table_filter.get_filter_summary()
+    }
+
+    current_filters = table_filter.get_active_filters()
+
     return render_template('stock_movements/index.html',
                          movements=movements,
-                         items=items,
-                         locations=locations,
-                         selected_item=item_id,
-                         selected_location=location_id)
+                         filter_config=filter_config,
+                         current_filters=current_filters)
 
 @stock_movements_bp.route('/new', methods=['GET', 'POST'])
 @login_required

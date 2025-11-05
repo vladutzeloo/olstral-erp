@@ -1,0 +1,201 @@
+{% macro render_filters(filters, action_url, current_filters={}) %}
+<div class="filter-panel">
+    <form method="GET" action="{{ action_url }}" class="filter-form" id="filter-form">
+        <div class="filter-row">
+            <!-- Search Box -->
+            {% if filters.get('search_fields') %}
+            <div class="filter-field">
+                <label for="search">Search</label>
+                <input type="text" id="search" name="search" class="form-control"
+                       placeholder="Search..." value="{{ current_filters.get('search', '') }}">
+            </div>
+            {% endif %}
+
+            <!-- Text/Select Filters -->
+            {% for field in filters.get('selects', []) %}
+            <div class="filter-field">
+                <label for="{{ field.name }}">{{ field.label }}</label>
+                <select id="{{ field.name }}" name="{{ field.name }}" class="form-control">
+                    <option value="">All</option>
+                    {% for option in field.options %}
+                    <option value="{{ option.value }}"
+                            {% if current_filters.get(field.name) == option.value|string %}selected{% endif %}>
+                        {{ option.label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endfor %}
+
+            <!-- Date Range Filter -->
+            {% for field in filters.get('date_ranges', []) %}
+            <div class="filter-field">
+                <label for="{{ field.name }}_range">{{ field.label }}</label>
+                <select id="{{ field.name }}_range" name="{{ field.name }}_range"
+                        class="form-control date-range-selector"
+                        onchange="toggleCustomDateRange('{{ field.name }}')">
+                    <option value="">All Time</option>
+                    <option value="today" {% if current_filters.get(field.name ~ '_range') == 'today' %}selected{% endif %}>Today</option>
+                    <option value="yesterday" {% if current_filters.get(field.name ~ '_range') == 'yesterday' %}selected{% endif %}>Yesterday</option>
+                    <option value="this_week" {% if current_filters.get(field.name ~ '_range') == 'this_week' %}selected{% endif %}>This Week</option>
+                    <option value="last_week" {% if current_filters.get(field.name ~ '_range') == 'last_week' %}selected{% endif %}>Last Week</option>
+                    <option value="this_month" {% if current_filters.get(field.name ~ '_range') == 'this_month' %}selected{% endif %}>This Month</option>
+                    <option value="last_month" {% if current_filters.get(field.name ~ '_range') == 'last_month' %}selected{% endif %}>Last Month</option>
+                    <option value="last_30_days" {% if current_filters.get(field.name ~ '_range') == 'last_30_days' %}selected{% endif %}>Last 30 Days</option>
+                    <option value="last_90_days" {% if current_filters.get(field.name ~ '_range') == 'last_90_days' %}selected{% endif %}>Last 90 Days</option>
+                    <option value="this_year" {% if current_filters.get(field.name ~ '_range') == 'this_year' %}selected{% endif %}>This Year</option>
+                    <option value="custom" {% if current_filters.get(field.name ~ '_range') == 'custom' %}selected{% endif %}>Custom Range</option>
+                </select>
+            </div>
+
+            <!-- Custom Date Range (hidden by default) -->
+            <div class="filter-field custom-date-range" id="{{ field.name }}_custom"
+                 style="display: {% if current_filters.get(field.name ~ '_range') == 'custom' %}flex{% else %}none{% endif %};">
+                <div>
+                    <label for="{{ field.name }}_start">From</label>
+                    <input type="date" id="{{ field.name }}_start" name="{{ field.name }}_start"
+                           class="form-control" value="{{ current_filters.get(field.name ~ '_start', '') }}">
+                </div>
+                <div>
+                    <label for="{{ field.name }}_end">To</label>
+                    <input type="date" id="{{ field.name }}_end" name="{{ field.name }}_end"
+                           class="form-control" value="{{ current_filters.get(field.name ~ '_end', '') }}">
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- Action Buttons -->
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+                <a href="{{ action_url }}" class="btn btn-secondary">Clear All</a>
+            </div>
+        </div>
+
+        <!-- Active Filters Summary -->
+        {% if filters.get('summary') %}
+        <div class="active-filters">
+            <strong>Active Filters:</strong>
+            {% for item in filters.summary %}
+            <span class="filter-badge">
+                {{ item }}
+                <a href="#" onclick="removeFilter('{{ item.split(':')[0].strip().lower().replace(' ', '_') }}'); return false;">×</a>
+            </span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<script>
+function toggleCustomDateRange(fieldName) {
+    const selector = document.getElementById(fieldName + '_range');
+    const customDiv = document.getElementById(fieldName + '_custom');
+
+    if (selector.value === 'custom') {
+        customDiv.style.display = 'flex';
+    } else {
+        customDiv.style.display = 'none';
+    }
+}
+
+function removeFilter(filterName) {
+    const input = document.querySelector(`[name="${filterName}"]`);
+    if (input) {
+        input.value = '';
+        document.getElementById('filter-form').submit();
+    }
+}
+
+// Auto-submit on filter change (optional - can be enabled/disabled)
+{% if filters.get('auto_submit', False) %}
+document.querySelectorAll('.filter-form select').forEach(select => {
+    select.addEventListener('change', function() {
+        document.getElementById('filter-form').submit();
+    });
+});
+{% endif %}
+</script>
+
+<style>
+.filter-panel {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.filter-row {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.filter-field {
+    flex: 1;
+    min-width: 200px;
+}
+
+.filter-field label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.custom-date-range {
+    gap: 10px;
+}
+
+.custom-date-range > div {
+    flex: 1;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.filter-actions .btn {
+    white-space: nowrap;
+}
+
+.active-filters {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #dee2e6;
+}
+
+.filter-badge {
+    display: inline-block;
+    background: #007bff;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    margin-right: 8px;
+    margin-top: 5px;
+    font-size: 0.9em;
+}
+
+.filter-badge a {
+    color: white;
+    text-decoration: none;
+    margin-left: 5px;
+    font-weight: bold;
+}
+
+.filter-badge a:hover {
+    color: #ffcccc;
+}
+
+@media (max-width: 768px) {
+    .filter-row {
+        flex-direction: column;
+    }
+
+    .filter-field {
+        width: 100%;
+    }
+}
+</style>
+{% endmacro %}
