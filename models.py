@@ -319,7 +319,7 @@ class AuditLog(db.Model):
 
 class Scrap(db.Model):
     __tablename__ = 'scraps'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     scrap_number = db.Column(db.String(50), unique=True, nullable=False)
     item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
@@ -332,6 +332,59 @@ class Scrap(db.Model):
     scrapped_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     item = db.relationship('Item')
     location = db.relationship('Location')
+
+class BillOfMaterials(db.Model):
+    __tablename__ = 'bill_of_materials'
+
+    id = db.Column(db.Integer, primary_key=True)
+    bom_number = db.Column(db.String(50), unique=True, nullable=False)
+    finished_item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    version = db.Column(db.String(20), default='1.0')
+    status = db.Column(db.String(20), default='draft')  # draft, active, obsolete
+    production_time_minutes = db.Column(db.Integer)  # Expected time to produce
+    scrap_factor = db.Column(db.Float, default=0.0)  # % of expected waste (0-100)
+    notes = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    activated_at = db.Column(db.DateTime)  # When it became active
+
+    finished_item = db.relationship('Item', foreign_keys=[finished_item_id], backref='boms')
+    components = db.relationship('BOMComponent', backref='bom', lazy=True, cascade='all, delete-orphan')
+
+    def calculate_total_cost(self):
+        """Calculate total material cost for one unit"""
+        total = 0.0
+        for component in self.components:
+            total += component.quantity * component.component.cost
+        return total
+
+    def get_active_version(self):
+        """Check if this is the active BOM for this item"""
+        active_bom = BillOfMaterials.query.filter_by(
+            finished_item_id=self.finished_item_id,
+            status='active'
+        ).first()
+        return active_bom.id == self.id if active_bom else False
+
+class BOMComponent(db.Model):
+    __tablename__ = 'bom_components'
+
+    id = db.Column(db.Integer, primary_key=True)
+    bom_id = db.Column(db.Integer, db.ForeignKey('bill_of_materials.id'), nullable=False)
+    component_item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    quantity = db.Column(db.Float, nullable=False)  # Quantity needed per finished unit
+    unit_of_measure = db.Column(db.String(20))  # Override UOM if different from item
+    sequence = db.Column(db.Integer, default=0)  # Assembly order
+    is_optional = db.Column(db.Boolean, default=False)  # Optional component
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    component = db.relationship('Item', foreign_keys=[component_item_id])
+
+    def get_total_cost(self):
+        """Calculate cost for this component line"""
+        return self.quantity * self.component.cost

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}New Bill of Materials - Inventory ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Create New Bill of Materials</h1>
+    <a href="{{ url_for('bom.index') }}" class="btn btn-secondary">Back to BOMs</a>
+</div>
+
+<div class="card">
+    <form method="POST" action="{{ url_for('bom.new') }}">
+        <div class="form-section">
+            <h3>BOM Information</h3>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="finished_item_id">Finished Item *</label>
+                    <select id="finished_item_id" name="finished_item_id" class="form-control" required>
+                        <option value="">Select finished item...</option>
+                        {% for item in items %}
+                        <option value="{{ item.id }}">{{ item.sku }} - {{ item.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="version">Version</label>
+                    <input type="text" id="version" name="version" class="form-control" value="1.0">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="production_time_minutes">Production Time (minutes)</label>
+                    <input type="number" id="production_time_minutes" name="production_time_minutes" class="form-control" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="scrap_factor">Scrap Factor (%)</label>
+                    <input type="number" id="scrap_factor" name="scrap_factor" class="form-control" min="0" max="100" step="0.1" value="0">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">Notes</label>
+                <textarea id="notes" name="notes" class="form-control" rows="3"></textarea>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3>Components</h3>
+
+            <table class="data-table" id="components-table">
+                <thead>
+                    <tr>
+                        <th style="width: 5%">#</th>
+                        <th style="width: 40%">Component Item *</th>
+                        <th style="width: 15%">Quantity *</th>
+                        <th style="width: 10%">Sequence</th>
+                        <th style="width: 25%">Notes</th>
+                        <th style="width: 5%">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="components-body">
+                    <!-- Component rows will be added here -->
+                </tbody>
+            </table>
+
+            <button type="button" class="btn btn-secondary" onclick="addComponent()">+ Add Component</button>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Create BOM</button>
+            <a href="{{ url_for('bom.index') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+let componentIndex = 0;
+
+function addComponent() {
+    componentIndex++;
+    const tbody = document.getElementById('components-body');
+    const row = document.createElement('tr');
+    row.id = `component-row-${componentIndex}`;
+    row.innerHTML = `
+        <td>${componentIndex}</td>
+        <td>
+            <select name="component_item_id[]" class="form-control" required>
+                <option value="">Select component...</option>
+                {% for item in items %}
+                <option value="{{ item.id }}">{{ item.sku }} - {{ item.name }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td>
+            <input type="number" name="quantity[]" class="form-control" step="0.01" min="0.01" required>
+        </td>
+        <td>
+            <input type="number" name="sequence[]" class="form-control" value="${componentIndex}">
+        </td>
+        <td>
+            <input type="text" name="component_notes[]" class="form-control">
+        </td>
+        <td>
+            <button type="button" class="btn btn-sm btn-danger" onclick="removeComponent(${componentIndex})">×</button>
+        </td>
+    `;
+    tbody.appendChild(row);
+}
+
+function removeComponent(index) {
+    const row = document.getElementById(`component-row-${index}`);
+    if (row) {
+        row.remove();
+    }
+    // Renumber rows
+    const rows = document.querySelectorAll('#components-body tr');
+    rows.forEach((row, idx) => {
+        row.querySelector('td:first-child').textContent = idx + 1;
+    });
+}
+
+// Add first component on page load
+window.addEventListener('load', function() {
+    addComponent();
+});
+</script>
+{% endblock %}
