@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "_filter_component.html" import render_filters %}
+
+{% block title %}Stock Movements - Inventory ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Stock Movements</h1>
+    <div class="page-actions">
+        <a href="{{ url_for('stock_movements.new') }}" class="btn btn-primary">Move Stock</a>
+    </div>
+</div>
+
+<!-- Universal Filter Component -->
+{{ render_filters(filter_config, url_for('stock_movements.index'), current_filters) }}
+
+<div class="card">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Movement #</th>
+                <th>Date</th>
+                <th>Item</th>
+                <th>From Location</th>
+                <th>To Location</th>
+                <th>Quantity</th>
+                <th>Type</th>
+                <th>Reason</th>
+                <th>Moved By</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if movements %}
+                {% for movement in movements %}
+                <tr>
+                    <td><a href="{{ url_for('stock_movements.view', id=movement.id) }}">{{ movement.movement_number }}</a></td>
+                    <td>{{ movement.moved_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <strong>{{ movement.item.sku }}</strong><br>
+                        <small>{{ movement.item.name }}</small>
+                    </td>
+                    <td>
+                        {{ movement.from_location.code }}<br>
+                        <small>{{ movement.from_location.name }}</small>
+                        {% if movement.from_location.zone %}
+                        <br><span class="badge badge-secondary">{{ movement.from_location.zone }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ movement.to_location.code }}<br>
+                        <small>{{ movement.to_location.name }}</small>
+                        {% if movement.to_location.zone %}
+                        <br><span class="badge badge-secondary">{{ movement.to_location.zone }}</span>
+                        {% endif %}
+                    </td>
+                    <td><strong>{{ movement.quantity }}</strong> {{ movement.item.unit_of_measure }}</td>
+                    <td><span class="badge badge-info">{{ movement.movement_type }}</span></td>
+                    <td>{{ movement.reason or '-' }}</td>
+                    <td>{{ movement.user.username if movement.user else 'System' }}</td>
+                    <td>
+                        <span class="badge badge-{{ 'success' if movement.status == 'completed' else 'warning' }}">
+                            {{ movement.status|upper }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('stock_movements.view', id=movement.id) }}" class="btn btn-sm btn-info">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="11" class="text-center">
+                        <p>No stock movements found.</p>
+                        <a href="{{ url_for('stock_movements.new') }}" class="btn btn-primary">Create First Movement</a>
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
