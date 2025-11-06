@@ -80,13 +80,13 @@ class PDFGenerator:
             elements.append(logo)
             elements.append(Spacer(1, 0.3*inch))
 
-        # Company name
+        # Company information
         company_info = Paragraph(
-            "<b>OLSTRAL MANUFACTURING</b><br/>"
-            "123 Industrial Drive<br/>"
-            "Manufacturing District<br/>"
-            "Phone: (555) 123-4567<br/>"
-            "Email: orders@olstral.com",
+            "<b>OLSTRAL</b><br/>"
+            "VGP PARK BRASOV – HALL A<br/>"
+            "Bucegi Street, No. 2<br/>"
+            "500053 Brasov<br/>"
+            "Romania",
             self.styles['InfoText']
         )
         elements.append(company_info)
