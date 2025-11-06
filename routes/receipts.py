@@ -244,18 +244,18 @@ def new():
     pos_data = []
     for po in pos:
         po_dict = {
-            'id': po.id,
-            'po_number': po.po_number,
-            'supplier_name': po.supplier.name,
+            'id': int(po.id),
+            'po_number': str(po.po_number),
+            'supplier_name': str(po.supplier.name),
             'items': [
                 {
                     'item': {
-                        'id': item.item.id,
-                        'sku': item.item.sku,
-                        'name': item.item.name
+                        'id': int(item.item.id),
+                        'sku': str(item.item.sku),
+                        'name': str(item.item.name)
                     },
-                    'quantity_ordered': item.quantity_ordered,
-                    'quantity_received': item.quantity_received
+                    'quantity_ordered': int(item.quantity_ordered),
+                    'quantity_received': int(item.quantity_received)
                 }
                 for item in po.items
             ]
