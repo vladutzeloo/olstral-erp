@@ -18,7 +18,7 @@
             <select name="po_id" id="po_id" class="form-control">
                 <option value="">None - Manual Entry</option>
                 {% for po in pos %}
-                <option value="{{ po.id }}" data-items='{{ po.items_json }}'>
+                <option value="{{ po.id }}" data-items='{{ po.items_json | safe }}'>
                     {{ po.po_number }} - {{ po.supplier_name }}
                 </option>
                 {% endfor %}
@@ -186,20 +186,31 @@ document.getElementById('source_type').addEventListener('change', function() {
 // PO selection handler
 document.getElementById('po_id').addEventListener('change', function() {
     if (!this.value) return;
-    
+
     const selectedOption = this.options[this.selectedIndex];
-    const items = JSON.parse(selectedOption.dataset.items || '[]');
-    
-    if (items.length > 0) {
-        clearAllRows();
-        items.forEach(poItem => {
-            addItemRowWithData(
-                poItem.item.id,
-                poItem.item.sku,
-                poItem.item.name,
-                poItem.quantity_ordered - poItem.quantity_received
-            );
-        });
+    const itemsJson = selectedOption.dataset.items || '[]';
+    console.log('PO Items JSON:', itemsJson);
+
+    try {
+        const items = JSON.parse(itemsJson);
+        console.log('Parsed items:', items);
+
+        if (items.length > 0) {
+            clearAllRows();
+            items.forEach(poItem => {
+                const remaining = poItem.quantity_ordered - poItem.quantity_received;
+                console.log(`Item ${poItem.item.sku}: ordered=${poItem.quantity_ordered}, received=${poItem.quantity_received}, remaining=${remaining}`);
+                addItemRowWithData(
+                    poItem.item.id,
+                    poItem.item.sku,
+                    poItem.item.name,
+                    remaining
+                );
+            });
+        }
+    } catch (error) {
+        console.error('Error parsing PO items:', error);
+        alert('Error loading PO items. Please try again.');
     }
 });
 
