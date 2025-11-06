@@ -239,13 +239,36 @@ def new():
     pos = PurchaseOrder.query.filter(
         PurchaseOrder.status.in_(['submitted', 'partial'])
     ).all()
+
+    # Prepare POs with serializable items data
+    pos_data = []
+    for po in pos:
+        po_dict = {
+            'id': po.id,
+            'po_number': po.po_number,
+            'supplier_name': po.supplier.name,
+            'items': [
+                {
+                    'item': {
+                        'id': item.item.id,
+                        'sku': item.item.sku,
+                        'name': item.item.name
+                    },
+                    'quantity_ordered': item.quantity_ordered,
+                    'quantity_received': item.quantity_received
+                }
+                for item in po.items
+            ]
+        }
+        pos_data.append(po_dict)
+
     external_processes = ExternalProcess.query.filter(
         ExternalProcess.status.in_(['sent', 'in_progress'])
     ).all()
     locations = Location.query.filter_by(is_active=True).all()
     items = Item.query.filter_by(is_active=True).all()
-    
-    return render_template('receipts/new.html', pos=pos, external_processes=external_processes, 
+
+    return render_template('receipts/new.html', pos=pos_data, external_processes=external_processes,
                          locations=locations, items=items)
 
 @receipts_bp.route('/search_items')
