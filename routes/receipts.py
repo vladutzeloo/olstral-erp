@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, send_file
 from flask_login import login_required, current_user
 from datetime import datetime
+import json
 from extensions import db
 from models import (Receipt, ReceiptItem, PurchaseOrder, PurchaseOrderItem, Location, Item,
                     InventoryLocation, InventoryTransaction, ExternalProcess, Scrap, Supplier, User)
@@ -240,25 +241,30 @@ def new():
         PurchaseOrder.status.in_(['submitted', 'partial'])
     ).all()
 
-    # Prepare POs with serializable items data
+    # Prepare POs with pre-serialized JSON items data
     pos_data = []
     for po in pos:
+        # Build items list as basic Python types
+        items_list = []
+        for item in po.items:
+            items_list.append({
+                'item': {
+                    'id': item.item.id,
+                    'sku': item.item.sku,
+                    'name': item.item.name
+                },
+                'quantity_ordered': item.quantity_ordered,
+                'quantity_received': item.quantity_received
+            })
+
+        # Pre-serialize items to JSON string in Python
+        items_json = json.dumps(items_list)
+
         po_dict = {
-            'id': int(po.id),
-            'po_number': str(po.po_number),
-            'supplier_name': str(po.supplier.name),
-            'items': [
-                {
-                    'item': {
-                        'id': int(item.item.id),
-                        'sku': str(item.item.sku),
-                        'name': str(item.item.name)
-                    },
-                    'quantity_ordered': int(item.quantity_ordered),
-                    'quantity_received': int(item.quantity_received)
-                }
-                for item in po.items
-            ]
+            'id': po.id,
+            'po_number': po.po_number,
+            'supplier_name': po.supplier.name,
+            'items_json': items_json  # Pre-serialized JSON string
         }
         pos_data.append(po_dict)
 

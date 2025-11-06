@@ -18,7 +18,7 @@
             <select name="po_id" id="po_id" class="form-control">
                 <option value="">None - Manual Entry</option>
                 {% for po in pos %}
-                <option value="{{ po.id }}" data-items='{{ po.items | tojson }}'>
+                <option value="{{ po.id }}" data-items='{{ po.items_json }}'>
                     {{ po.po_number }} - {{ po.supplier_name }}
                 </option>
                 {% endfor %}
