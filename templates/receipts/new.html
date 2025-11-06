@@ -19,7 +19,7 @@
                 <option value="">None - Manual Entry</option>
                 {% for po in pos %}
                 <option value="{{ po.id }}" data-items='{{ po.items | tojson }}'>
-                    {{ po.po_number }} - {{ po.supplier.name }}
+                    {{ po.po_number }} - {{ po.supplier_name }}
                 </option>
                 {% endfor %}
             </select>
