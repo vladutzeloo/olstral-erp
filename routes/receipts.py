@@ -1,7 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, send_file
 from flask_login import login_required, current_user
 from datetime import datetime
-import json
 from extensions import db
 from models import (Receipt, ReceiptItem, PurchaseOrder, PurchaseOrderItem, Location, Item,
                     InventoryLocation, InventoryTransaction, ExternalProcess, Scrap, Supplier, User)
@@ -237,36 +236,10 @@ def new():
             flash(f'Error creating receipt: {str(e)}', 'danger')
             return redirect(url_for('receipts.new'))
     
+    # Get list of POs for dropdown - no JSON serialization needed, AJAX will fetch items
     pos = PurchaseOrder.query.filter(
         PurchaseOrder.status.in_(['submitted', 'partial'])
     ).all()
-
-    # Prepare POs with pre-serialized JSON items data
-    pos_data = []
-    for po in pos:
-        # Build items list as basic Python types
-        items_list = []
-        for item in po.items:
-            items_list.append({
-                'item': {
-                    'id': item.item.id,
-                    'sku': item.item.sku,
-                    'name': item.item.name
-                },
-                'quantity_ordered': item.quantity_ordered,
-                'quantity_received': item.quantity_received
-            })
-
-        # Pre-serialize items to JSON string in Python
-        items_json = json.dumps(items_list)
-
-        po_dict = {
-            'id': po.id,
-            'po_number': po.po_number,
-            'supplier_name': po.supplier.name,
-            'items_json': items_json  # Pre-serialized JSON string
-        }
-        pos_data.append(po_dict)
 
     external_processes = ExternalProcess.query.filter(
         ExternalProcess.status.in_(['sent', 'in_progress'])
@@ -274,7 +247,7 @@ def new():
     locations = Location.query.filter_by(is_active=True).all()
     items = Item.query.filter_by(is_active=True).all()
 
-    return render_template('receipts/new.html', pos=pos_data, external_processes=external_processes,
+    return render_template('receipts/new.html', pos=pos, external_processes=external_processes,
                          locations=locations, items=items)
 
 @receipts_bp.route('/search_items')
@@ -301,6 +274,37 @@ def search_items():
     } for item in items]
     
     return jsonify(results)
+
+@receipts_bp.route('/api/po_items/<int:po_id>')
+@login_required
+def get_po_items(po_id):
+    """API endpoint to fetch PO items for receipt creation"""
+    try:
+        po = PurchaseOrder.query.get_or_404(po_id)
+        items = []
+
+        for po_item in po.items:
+            remaining = po_item.quantity_ordered - po_item.quantity_received
+            items.append({
+                'item_id': po_item.item.id,
+                'sku': po_item.item.sku,
+                'name': po_item.item.name,
+                'quantity_ordered': po_item.quantity_ordered,
+                'quantity_received': po_item.quantity_received,
+                'remaining': remaining
+            })
+
+        return jsonify({
+            'success': True,
+            'po_number': po.po_number,
+            'supplier': po.supplier.name,
+            'items': items
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @receipts_bp.route('/get_external_process_info/<int:process_id>')
 @login_required
