@@ -149,6 +149,9 @@
 </style>
 
 <script>
+// Wait for DOM to be fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+
 // Source type change handler
 document.getElementById('source_type').addEventListener('change', function() {
     const sourceType = this.value;
@@ -365,10 +368,8 @@ function attachRowHandlers(row) {
 }
 
 // Initialize handlers for existing rows
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.item-row').forEach(row => {
-        attachRowHandlers(row);
-    });
+document.querySelectorAll('.item-row').forEach(row => {
+    attachRowHandlers(row);
 });
 
 // Form validation
@@ -391,5 +392,7 @@ document.getElementById('receiptForm').addEventListener('submit', function(e) {
         return false;
     }
 });
+
+}); // End of DOMContentLoaded
 </script>
 {% endblock %}
