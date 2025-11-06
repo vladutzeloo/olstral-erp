@@ -3,6 +3,7 @@
 {% block content %}
 <h1>Purchase Order: {{ po.po_number }}</h1>
 <div class="action-links">
+    <a href="{{ url_for('purchase_orders.download_pdf', id=po.id) }}" class="btn btn-success">📄 Download PDF</a>
     {% if po.status == 'draft' %}
     <a href="{{ url_for('purchase_orders.submit', id=po.id) }}" class="btn btn-primary">Submit PO</a>
     {% endif %}

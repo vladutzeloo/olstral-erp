@@ -237,6 +237,9 @@ class Receipt(db.Model):
     
     items = db.relationship('ReceiptItem', backref='receipt', lazy=True, cascade='all, delete-orphan')
     external_process = db.relationship('ExternalProcess', backref='receipts')
+    purchase_order = db.relationship('PurchaseOrder', foreign_keys=[po_id])
+    location = db.relationship('Location', foreign_keys=[location_id])
+    received_by_user = db.relationship('User', foreign_keys=[received_by])
 
 class ReceiptItem(db.Model):
     __tablename__ = 'receipt_items'
