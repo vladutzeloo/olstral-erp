@@ -18,8 +18,8 @@
             <select name="po_id" id="po_id" class="form-control">
                 <option value="">None - Manual Entry</option>
                 {% for po in pos %}
-                <option value="{{ po.id }}" data-items='{{ po.items_json | safe }}'>
-                    {{ po.po_number }} - {{ po.supplier_name }}
+                <option value="{{ po.id }}">
+                    {{ po.po_number }} - {{ po.supplier.name }}
                 </option>
                 {% endfor %}
             </select>
@@ -183,35 +183,57 @@ document.getElementById('source_type').addEventListener('change', function() {
     addItemRow();
 });
 
-// PO selection handler
+// PO selection handler with AJAX
 document.getElementById('po_id').addEventListener('change', function() {
-    if (!this.value) return;
+    const poId = this.value;
 
-    const selectedOption = this.options[this.selectedIndex];
-    const itemsJson = selectedOption.dataset.items || '[]';
-    console.log('PO Items JSON:', itemsJson);
-
-    try {
-        const items = JSON.parse(itemsJson);
-        console.log('Parsed items:', items);
-
-        if (items.length > 0) {
-            clearAllRows();
-            items.forEach(poItem => {
-                const remaining = poItem.quantity_ordered - poItem.quantity_received;
-                console.log(`Item ${poItem.item.sku}: ordered=${poItem.quantity_ordered}, received=${poItem.quantity_received}, remaining=${remaining}`);
-                addItemRowWithData(
-                    poItem.item.id,
-                    poItem.item.sku,
-                    poItem.item.name,
-                    remaining
-                );
-            });
-        }
-    } catch (error) {
-        console.error('Error parsing PO items:', error);
-        alert('Error loading PO items. Please try again.');
+    if (!poId) {
+        clearAllRows();
+        addItemRow();
+        return;
     }
+
+    console.log('Loading items for PO:', poId);
+
+    // Show loading indicator
+    const originalHtml = this.parentElement.querySelector('small').innerHTML;
+    this.parentElement.querySelector('small').innerHTML = 'Loading items...';
+
+    fetch(`/receipts/api/po_items/${poId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to load PO items');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('PO items loaded:', data);
+
+            if (data.success && data.items && data.items.length > 0) {
+                clearAllRows();
+                data.items.forEach(item => {
+                    console.log(`Adding item: ${item.sku}, remaining: ${item.remaining}`);
+                    addItemRowWithData(
+                        item.item_id,
+                        item.sku,
+                        item.name,
+                        item.remaining
+                    );
+                });
+            } else {
+                alert('No items found for this PO');
+            }
+
+            // Restore original text
+            this.parentElement.querySelector('small').innerHTML = originalHtml;
+        })
+        .catch(error => {
+            console.error('Error loading PO items:', error);
+            alert('Error loading PO items. Please try again later.');
+
+            // Restore original text
+            this.parentElement.querySelector('small').innerHTML = originalHtml;
+        });
 });
 
 // External process selection handler
