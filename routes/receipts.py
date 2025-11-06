@@ -1,10 +1,11 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, send_file
 from flask_login import login_required, current_user
 from datetime import datetime
 from extensions import db
 from models import (Receipt, ReceiptItem, PurchaseOrder, PurchaseOrderItem, Location, Item,
                     InventoryLocation, InventoryTransaction, ExternalProcess, Scrap, Supplier, User)
 from filter_utils import TableFilter
+from pdf_generator import ReceiptPDF
 
 receipts_bp = Blueprint('receipts', __name__)
 
@@ -317,3 +318,22 @@ def get_external_process_info(process_id):
 def view(id):
     receipt = Receipt.query.get_or_404(id)
     return render_template('receipts/view.html', receipt=receipt)
+
+@receipts_bp.route('/<int:id>/pdf')
+@login_required
+def download_pdf(id):
+    """Generate and download PDF for receipt"""
+    receipt = Receipt.query.get_or_404(id)
+
+    # Generate PDF
+    pdf_generator = ReceiptPDF()
+    pdf_buffer = pdf_generator.generate(receipt)
+
+    # Send file
+    filename = f"Receipt_{receipt.receipt_number}.pdf"
+    return send_file(
+        pdf_buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=filename
+    )

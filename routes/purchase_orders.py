@@ -1,9 +1,10 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file
 from flask_login import login_required, current_user
 from datetime import datetime
 from extensions import db
 from models import PurchaseOrder, PurchaseOrderItem, Supplier, Item, User
 from filter_utils import TableFilter
+from pdf_generator import PurchaseOrderPDF
 
 po_bp = Blueprint('purchase_orders', __name__)
 
@@ -131,6 +132,25 @@ def new():
 def view(id):
     po = PurchaseOrder.query.get_or_404(id)
     return render_template('purchase_orders/view.html', po=po)
+
+@po_bp.route('/<int:id>/pdf')
+@login_required
+def download_pdf(id):
+    """Generate and download PDF for purchase order"""
+    po = PurchaseOrder.query.get_or_404(id)
+
+    # Generate PDF
+    pdf_generator = PurchaseOrderPDF()
+    pdf_buffer = pdf_generator.generate(po)
+
+    # Send file
+    filename = f"PO_{po.po_number}.pdf"
+    return send_file(
+        pdf_buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=filename
+    )
 
 @po_bp.route('/<int:id>/submit')
 @login_required
