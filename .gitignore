@@ -26,7 +26,7 @@ venv.bak/
 *~
 
 # Database
-inventory.db
+data/inventory.db
 *.db-journal
 
 # OS
