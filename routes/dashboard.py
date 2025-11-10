@@ -2,7 +2,7 @@ from flask import Blueprint, render_template
 from flask_login import login_required
 from sqlalchemy import func
 from extensions import db
-from models import Item, InventoryLocation, PurchaseOrder, Shipment, ExternalProcess, Batch
+from models import Item, InventoryLocation, PurchaseOrder, Shipment, ExternalProcess, Batch, ProductionOrder
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -42,10 +42,16 @@ def index():
         ExternalProcess.status.in_(['sent', 'in_progress'])
     ).count()
     
+    # Get active production orders
+    active_production_orders = ProductionOrder.query.filter(
+        ProductionOrder.status.in_(['released', 'in_progress'])
+    ).count()
+
     # Recent activities
     recent_pos = PurchaseOrder.query.order_by(PurchaseOrder.created_at.desc()).limit(5).all()
     recent_shipments = Shipment.query.order_by(Shipment.created_at.desc()).limit(5).all()
-    
+    recent_production_orders = ProductionOrder.query.order_by(ProductionOrder.created_at.desc()).limit(5).all()
+
     return render_template('dashboard.html',
                          total_items=total_items,
                          inventory_value=inventory_value,
@@ -53,5 +59,7 @@ def index():
                          low_stock_items=low_stock_items[:10],
                          pending_pos=pending_pos,
                          pending_processes=pending_processes,
+                         active_production_orders=active_production_orders,
                          recent_pos=recent_pos,
-                         recent_shipments=recent_shipments)
+                         recent_shipments=recent_shipments,
+                         recent_production_orders=recent_production_orders)
