@@ -175,6 +175,101 @@
     </div>
 </div>
 
+{% if picking_list %}
+<div class="section">
+    <h2>📋 Material Picking List</h2>
+    <p class="text-muted">Gather these materials from the warehouse bins before starting production</p>
+
+    {% for pick_item in picking_list %}
+    <div class="card mb-3">
+        <div class="card-header" style="background-color: #f8f9fa;">
+            <h4 style="margin: 0;">
+                {{ pick_item.item.sku }} - {{ pick_item.item.name }}
+            </h4>
+            <div style="margin-top: 5px;">
+                <span class="badge badge-primary">Need: {{ pick_item.quantity_needed }}</span>
+                <span class="badge badge-{% if pick_item.total_available >= pick_item.quantity_needed %}success{% else %}danger{% endif %}">
+                    Available: {{ pick_item.total_available }}
+                </span>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if pick_item.location_bins %}
+            <table class="table table-sm table-bordered">
+                <thead>
+                    <tr>
+                        <th style="width: 18%;">Warehouse Location</th>
+                        <th style="width: 15%;">Bin Location</th>
+                        <th style="width: 25%;">Batch Numbers</th>
+                        <th style="width: 12%;">Quantity</th>
+                        <th style="width: 12%;">Received Date</th>
+                        <th style="width: 18%;">Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for loc_bin in pick_item.location_bins %}
+                    <tr {% if loc_bin.is_production_location %}style="background-color: #e7f3ff;"{% endif %}>
+                        <td>
+                            <strong style="font-size: 1.0em; {% if loc_bin.is_production_location %}color: #28a745;{% else %}color: #333;{% endif %}">
+                                {{ loc_bin.location_name }}
+                                {% if loc_bin.is_production_location %}
+                                <span class="badge badge-success">Production</span>
+                                {% endif %}
+                            </strong>
+                        </td>
+                        <td>
+                            <strong style="font-size: 1.0em; {% if loc_bin.bin_location != 'Unassigned' %}color: #007bff;{% else %}color: #6c757d;{% endif %}">
+                                {{ loc_bin.bin_location }}
+                            </strong>
+                        </td>
+                        <td>
+                            {% for batch in loc_bin.batches[:3] %}
+                            <span class="badge badge-secondary">{{ batch.batch_number }}</span>
+                            {% endfor %}
+                            {% if loc_bin.batches|length > 3 %}
+                            <span class="text-muted">+{{ loc_bin.batches|length - 3 }} more</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ loc_bin.total_quantity }}</strong></td>
+                        <td>
+                            {% if loc_bin.batches %}
+                            {{ loc_bin.batches[0].received_date.strftime('%Y-%m-%d') }}
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">
+                            {% if loc_bin.is_production_location %}
+                            Already at production
+                            {% elif loc_bin.bin_location == 'Unassigned' %}
+                            No bin assigned
+                            {% else %}
+                            Will auto-transfer
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="alert alert-warning">
+                <strong>⚠️ No batches available</strong> - Cannot start production without materials
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="alert alert-info">
+        <strong>💡 How it works:</strong>
+        <ul class="mb-0">
+            <li>This picking list shows where materials are currently located across all warehouse locations</li>
+            <li>When you click "Start Production", the system will <strong>automatically transfer</strong> materials from other locations to the production area</li>
+            <li>Materials are then consumed using FIFO (First In, First Out) method</li>
+            <li>Items highlighted in blue are already at the production location</li>
+        </ul>
+    </div>
+</div>
+{% endif %}
+
 {% if order.status in ['in_progress', 'completed'] and order.consumption_records %}
 <div class="section">
     <h2>Component Consumption (FIFO)</h2>
@@ -184,6 +279,7 @@
                 <tr>
                     <th>Component</th>
                     <th>Batch</th>
+                    <th>Bin Location</th>
                     <th>Qty Consumed</th>
                     <th>Cost per Unit</th>
                     <th>Total Cost</th>
@@ -199,6 +295,13 @@
                             {{ consumption.batch.batch_number }}
                         </a>
                     </td>
+                    <td>
+                        {% if consumption.batch.bin_location %}
+                            <span class="badge badge-info">{{ consumption.batch.bin_location }}</span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
                     <td>{{ consumption.quantity_consumed }}</td>
                     <td>${{ "%.2f"|format(consumption.cost_per_unit) }}</td>
                     <td><strong>${{ "%.2f"|format(consumption.total_cost) }}</strong></td>
@@ -206,7 +309,7 @@
                 </tr>
                 {% endfor %}
                 <tr class="table-active">
-                    <td colspan="4"><strong>Total Material Cost (FIFO):</strong></td>
+                    <td colspan="5"><strong>Total Material Cost (FIFO):</strong></td>
                     <td colspan="2"><strong>${{ "%.2f"|format(order.material_cost) }}</strong></td>
                 </tr>
             </tbody>

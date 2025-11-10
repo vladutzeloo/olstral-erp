@@ -185,6 +185,9 @@ def new():
 @login_required
 def view(id):
     """View production order details"""
+    import json
+    from batch_utils import get_available_batches_fifo
+
     order = ProductionOrder.query.get_or_404(id)
 
     # Get traceability info if production has started
@@ -192,7 +195,66 @@ def view(id):
     if order.status in ['in_progress', 'completed']:
         traceability = get_production_traceability(id)
 
-    return render_template('production_orders/view.html', order=order, traceability=traceability)
+    # Get picking list with bin locations for released orders (before starting production)
+    picking_list = None
+    if order.status == 'released':
+        picking_list = []
+
+        # Determine components to pick
+        components_to_pick = []
+
+        if order.bom_id:
+            # BOM mode
+            for bom_component in order.bom.components:
+                components_to_pick.append({
+                    'item': bom_component.component,
+                    'quantity_needed': int(bom_component.quantity * order.quantity_ordered)
+                })
+        elif order.manual_components:
+            # Manual mode
+            manual_comps = json.loads(order.manual_components)
+            for comp in manual_comps:
+                item = Item.query.get(comp['item_id'])
+                if item:
+                    components_to_pick.append({
+                        'item': item,
+                        'quantity_needed': int(comp['quantity'] * order.quantity_ordered)
+                    })
+
+        # Get available batches with bin locations for each component (from all locations)
+        for component in components_to_pick:
+            # Search all locations for materials
+            batches = get_available_batches_fifo(
+                item_id=component['item'].id,
+                location_id=None  # Search all locations
+            )
+
+            # Group batches by location and bin
+            location_bins = {}
+            for batch in batches:
+                location_name = batch.location.name
+                bin_loc = batch.bin_location or 'Unassigned'
+                key = f"{location_name}|{bin_loc}"
+
+                if key not in location_bins:
+                    location_bins[key] = {
+                        'location_name': location_name,
+                        'bin_location': bin_loc,
+                        'batches': [],
+                        'total_quantity': 0,
+                        'is_production_location': batch.location_id == order.location_id
+                    }
+                location_bins[key]['batches'].append(batch)
+                location_bins[key]['total_quantity'] += batch.quantity_available
+
+            picking_list.append({
+                'item': component['item'],
+                'quantity_needed': component['quantity_needed'],
+                'location_bins': list(location_bins.values()),
+                'total_available': sum(b['total_quantity'] for b in location_bins.values())
+            })
+
+    return render_template('production_orders/view.html', order=order, traceability=traceability, picking_list=picking_list)
 
 
 @production_orders_bp.route('/<int:id>/release', methods=['POST'])
