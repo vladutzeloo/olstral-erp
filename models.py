@@ -520,3 +520,82 @@ class BatchTransaction(db.Model):
     # Relationships
     from_location = db.relationship('Location', foreign_keys=[from_location_id])
     to_location = db.relationship('Location', foreign_keys=[to_location_id])
+
+class ProductionOrder(db.Model):
+    """Production orders for manufacturing finished goods"""
+    __tablename__ = 'production_orders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_number = db.Column(db.String(50), unique=True, nullable=False)
+    finished_item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    bom_id = db.Column(db.Integer, db.ForeignKey('bill_of_materials.id'), nullable=False)
+    location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
+
+    # Quantities
+    quantity_ordered = db.Column(db.Integer, nullable=False)
+    quantity_produced = db.Column(db.Integer, default=0)
+    quantity_scrapped = db.Column(db.Integer, default=0)
+
+    # Status workflow
+    status = db.Column(db.String(20), default='draft')  # draft, released, in_progress, completed, cancelled
+
+    # Dates
+    start_date = db.Column(db.DateTime)
+    due_date = db.Column(db.DateTime)
+    actual_start_date = db.Column(db.DateTime)
+    actual_completion_date = db.Column(db.DateTime)
+
+    # Costs (calculated from FIFO batch consumption)
+    material_cost = db.Column(db.Float, default=0.0)  # FIFO cost of consumed materials
+    labor_cost = db.Column(db.Float, default=0.0)  # Optional labor cost
+    overhead_cost = db.Column(db.Float, default=0.0)  # Optional overhead
+    total_cost = db.Column(db.Float, default=0.0)  # Total production cost
+
+    # Metadata
+    notes = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    finished_item = db.relationship('Item', foreign_keys=[finished_item_id], backref='production_orders')
+    bom = db.relationship('BillOfMaterials', foreign_keys=[bom_id])
+    location = db.relationship('Location', foreign_keys=[location_id])
+    consumption_records = db.relationship('ProductionConsumption', backref='production_order', lazy=True, cascade='all, delete-orphan')
+    user = db.relationship('User', foreign_keys=[created_by])
+
+    def calculate_total_cost(self):
+        """Calculate total production cost from FIFO consumption"""
+        total = sum(c.total_cost for c in self.consumption_records)
+        total += self.labor_cost + self.overhead_cost
+        return total
+
+    def get_completion_percentage(self):
+        """Get production completion percentage"""
+        if self.quantity_ordered == 0:
+            return 0
+        return (self.quantity_produced / self.quantity_ordered) * 100
+
+class ProductionConsumption(db.Model):
+    """Track component consumption for production orders with FIFO batch linking"""
+    __tablename__ = 'production_consumption'
+
+    id = db.Column(db.Integer, primary_key=True)
+    production_order_id = db.Column(db.Integer, db.ForeignKey('production_orders.id'), nullable=False)
+    component_item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    batch_id = db.Column(db.Integer, db.ForeignKey('batches.id'), nullable=False)
+
+    # Quantities and cost
+    quantity_consumed = db.Column(db.Integer, nullable=False)
+    cost_per_unit = db.Column(db.Float, default=0.0)  # From batch at time of consumption
+    total_cost = db.Column(db.Float, default=0.0)  # quantity * cost_per_unit
+
+    # Metadata
+    consumed_date = db.Column(db.DateTime, default=datetime.utcnow)
+    consumed_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    notes = db.Column(db.Text)
+
+    # Relationships
+    component = db.relationship('Item', foreign_keys=[component_item_id])
+    batch = db.relationship('Batch', foreign_keys=[batch_id])
+    user = db.relationship('User', foreign_keys=[consumed_by])
