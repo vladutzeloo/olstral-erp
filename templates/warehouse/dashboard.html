@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Warehouse Dashboard{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">📦 Warehouse Dashboard</h1>
+    <p class="text-muted">Welcome, {{ current_user.username }}!</p>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h3>{{ stats.today_receipts }}</h3>
+                    <p>Today's Receipts</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h3>{{ stats.today_shipments }}</h3>
+                    <p>Today's Shipments</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h3>{{ stats.pending_pos }}</h3>
+                    <p>Pending POs</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h3>{{ stats.low_stock_count }}</h3>
+                    <p>Low Stock Items</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3>Quick Actions</h3>
+        </div>
+        <div class="col-md-3">
+            <a href="{{ url_for('receipts.new') }}" class="btn btn-lg btn-primary btn-block">
+                <i class="fas fa-truck-loading"></i> Receive Materials
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{{ url_for('shipments.new') }}" class="btn btn-lg btn-success btn-block">
+                <i class="fas fa-shipping-fast"></i> Ship Order
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{{ url_for('warehouse.stock_lookup') }}" class="btn btn-lg btn-info btn-block">
+                <i class="fas fa-search"></i> Stock Lookup
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{{ url_for('stock_movements.new') }}" class="btn btn-lg btn-secondary btn-block">
+                <i class="fas fa-exchange-alt"></i> Move Stock
+            </a>
+        </div>
+    </div>
+
+    <!-- Today's Activity -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Receipts</h5>
+                </div>
+                <div class="card-body">
+                    {% if today_receipts %}
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Receipt #</th>
+                                <th>Source</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for receipt in today_receipts %}
+                            <tr>
+                                <td><a href="{{ url_for('receipts.view', id=receipt.id) }}">{{ receipt.receipt_number }}</a></td>
+                                <td>{{ receipt.source_type }}</td>
+                                <td>{{ receipt.received_date.strftime('%H:%M') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-muted">No receipts today</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Recent Shipments</h5>
+                </div>
+                <div class="card-body">
+                    {% if today_shipments %}
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Shipment #</th>
+                                <th>Customer</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for shipment in today_shipments %}
+                            <tr>
+                                <td><a href="{{ url_for('shipments.view', id=shipment.id) }}">{{ shipment.shipment_number }}</a></td>
+                                <td>{{ shipment.customer_name }}</td>
+                                <td>{{ shipment.ship_date.strftime('%H:%M') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-muted">No shipments today</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Tasks -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Pending Purchase Orders</h5>
+                </div>
+                <div class="card-body">
+                    {% if pending_pos %}
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>PO #</th>
+                                <th>Supplier</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for po in pending_pos %}
+                            <tr>
+                                <td>{{ po.po_number }}</td>
+                                <td>{{ po.supplier.name }}</td>
+                                <td><span class="badge badge-warning">{{ po.status }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <a href="{{ url_for('receipts.new') }}" class="btn btn-sm btn-primary">Receive Materials</a>
+                    {% else %}
+                    <p class="text-muted">No pending POs</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Low Stock Alerts</h5>
+                </div>
+                <div class="card-body">
+                    {% if low_stock_items %}
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Current</th>
+                                <th>Min Level</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item, inv_loc in low_stock_items %}
+                            <tr>
+                                <td>{{ item.sku }}</td>
+                                <td>{{ inv_loc.quantity }}</td>
+                                <td>{{ item.reorder_level }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-success">All stock levels OK</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

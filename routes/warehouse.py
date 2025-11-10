@@ -99,7 +99,7 @@ def quick_receive():
     # Get pending external processes
     pending_external = ExternalProcess.query.filter(
         ExternalProcess.status.in_(['sent', 'in_progress'])
-    ).order_by(PurchaseOrder.process_number.desc()).all()
+    ).order_by(ExternalProcess.process_number.desc()).all()
 
     # Get active locations
     locations = Location.query.filter_by(is_active=True).order_by(Location.code).all()

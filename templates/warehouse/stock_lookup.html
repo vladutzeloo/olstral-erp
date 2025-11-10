@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Stock Lookup{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">🔍 Stock Lookup</h1>
+
+    <!-- Search Form -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('warehouse.stock_lookup') }}">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Search Item</label>
+                            <input type="text" name="q" class="form-control"
+                                   placeholder="Enter SKU, name, or neo code"
+                                   value="{{ query or '' }}" autofocus>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label>Filter by Location</label>
+                            <select name="location_id" class="form-control">
+                                <option value="">All Locations</option>
+                                {% for loc in locations %}
+                                <option value="{{ loc.id }}" {% if location_id == loc.id %}selected{% endif %}>
+                                    {{ loc.code }} - {{ loc.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results -->
+    {% if query %}
+        {% if results %}
+        <div class="alert alert-success">
+            Found {{ results|length }} item(s)
+        </div>
+
+        {% for result in results %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5>{{ result.item.sku }} - {{ result.item.name }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Total Available:</strong>
+                        <span class="badge badge-primary badge-lg">{{ result.total_quantity }}</span>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Batches:</strong> {{ result.batch_count }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Category:</strong> {{ result.item.category.name }}
+                    </div>
+                    <div class="col-md-3">
+                        <strong>UOM:</strong> {{ result.item.unit_of_measure }}
+                    </div>
+                </div>
+
+                {% if result.inventories %}
+                <h6 class="mt-3">By Location:</h6>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Location</th>
+                            <th>Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in result.inventories %}
+                        <tr>
+                            <td>{{ inv.location.code }} - {{ inv.location.name }}</td>
+                            <td>{{ inv.quantity }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
+
+                {% if result.batches %}
+                <h6 class="mt-3">Batches (FIFO Order - Oldest First):</h6>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Batch #</th>
+                            <th>Location</th>
+                            <th>Quantity</th>
+                            <th>Received Date</th>
+                            <th>Supplier Batch</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for batch in result.batches %}
+                        <tr>
+                            <td><a href="{{ url_for('batches.view', id=batch.id) }}">{{ batch.batch_number }}</a></td>
+                            <td>{{ batch.location.code }}</td>
+                            <td>{{ batch.quantity_available }}</td>
+                            <td>{{ batch.received_date.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ batch.supplier_batch_number or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        {% else %}
+        <div class="alert alert-warning">
+            No items found matching "{{ query }}"
+        </div>
+        {% endif %}
+    {% endif %}
+
+    <div class="mt-3">
+        <a href="{{ url_for('warehouse.dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}
