@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}New Production Order{% endblock %}
+{% block content %}
+<h1>Create New Production Order</h1>
+
+<div class="section">
+    <form method="POST" id="productionOrderForm">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label>Bill of Materials (BOM) *</label>
+                    <select name="bom_id" id="bom_id" class="form-control" required>
+                        <option value="">Select BOM</option>
+                        {% for bom in boms %}
+                        <option value="{{ bom.id }}"
+                                data-finished-item="{{ bom.finished_item_id }}"
+                                data-finished-sku="{{ bom.finished_item.sku }}"
+                                data-finished-name="{{ bom.finished_item.name }}">
+                            {{ bom.bom_number }} - {{ bom.finished_item.sku }} ({{ bom.finished_item.name }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">Select the BOM for the item to produce</small>
+                </div>
+
+                <div class="form-group" id="finished_item_display" style="display:none;">
+                    <label>Finished Item</label>
+                    <input type="hidden" name="finished_item_id" id="finished_item_id">
+                    <input type="text" id="finished_item_text" class="form-control" readonly style="background-color: #e9ecef;">
+                </div>
+
+                <div class="form-group">
+                    <label>Quantity to Produce *</label>
+                    <input type="number" name="quantity_ordered" id="quantity_ordered" class="form-control"
+                           required min="1" value="1">
+                </div>
+
+                <div class="form-group">
+                    <label>Production Location *</label>
+                    <select name="location_id" id="location_id" class="form-control" required>
+                        <option value="">Select Location</option>
+                        {% for location in locations %}
+                        <option value="{{ location.id }}">{{ location.code }} - {{ location.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <input type="date" name="start_date" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label>Due Date</label>
+                    <input type="date" name="due_date" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea name="notes" class="form-control" rows="4"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div id="component_requirements" class="mt-3" style="display:none;">
+            <h3>Component Requirements</h3>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Required Qty</th>
+                            <th>Available</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="components_table">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="mt-3">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-check"></i> Create Production Order
+            </button>
+            <a href="{{ url_for('production_orders.index') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const bomSelect = document.getElementById('bom_id');
+    const quantityInput = document.getElementById('quantity_ordered');
+    const locationSelect = document.getElementById('location_id');
+    const finishedItemDisplay = document.getElementById('finished_item_display');
+    const finishedItemId = document.getElementById('finished_item_id');
+    const finishedItemText = document.getElementById('finished_item_text');
+    const requirementsDiv = document.getElementById('component_requirements');
+    const componentsTable = document.getElementById('components_table');
+
+    // When BOM is selected, show finished item and load requirements
+    bomSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+
+        if (this.value) {
+            const finishedItem = selectedOption.dataset.finishedItem;
+            const finishedSku = selectedOption.dataset.finishedSku;
+            const finishedName = selectedOption.dataset.finishedName;
+
+            finishedItemId.value = finishedItem;
+            finishedItemText.value = `${finishedSku} - ${finishedName}`;
+            finishedItemDisplay.style.display = 'block';
+
+            loadRequirements();
+        } else {
+            finishedItemDisplay.style.display = 'none';
+            requirementsDiv.style.display = 'none';
+        }
+    });
+
+    // Update requirements when quantity or location changes
+    quantityInput.addEventListener('change', loadRequirements);
+    locationSelect.addEventListener('change', loadRequirements);
+
+    function loadRequirements() {
+        const bomId = bomSelect.value;
+        const quantity = quantityInput.value;
+        const locationId = locationSelect.value;
+
+        if (!bomId || !quantity || !locationId) {
+            requirementsDiv.style.display = 'none';
+            return;
+        }
+
+        fetch(`/production-orders/api/requirements/${bomId}/${quantity}?location_id=${locationId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayRequirements(data.requirements);
+                    requirementsDiv.style.display = 'block';
+                } else {
+                    console.error('Error loading requirements:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+    }
+
+    function displayRequirements(requirements) {
+        componentsTable.innerHTML = '';
+
+        requirements.forEach(req => {
+            const row = document.createElement('tr');
+            const statusClass = req.sufficient ? 'success' : 'danger';
+            const statusText = req.sufficient ? '✓ Available' : '✗ Insufficient';
+
+            row.innerHTML = `
+                <td>${req.sku} - ${req.name}</td>
+                <td>${req.required_quantity} ${req.unit_of_measure}</td>
+                <td>${req.available_quantity}</td>
+                <td><span class="badge badge-${statusClass}">${statusText}</span></td>
+            `;
+
+            componentsTable.appendChild(row);
+        });
+    }
+});
+</script>
+{% endblock %}

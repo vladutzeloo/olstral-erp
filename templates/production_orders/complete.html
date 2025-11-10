@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Complete Production Order{% endblock %}
+{% block content %}
+<h1>Complete Production Order: {{ order.order_number }}</h1>
+
+<div class="section">
+    <h2>Order Information</h2>
+    <table class="table table-bordered">
+        <tr>
+            <th style="width: 30%;">Finished Item:</th>
+            <td>{{ order.finished_item.sku }} - {{ order.finished_item.name }}</td>
+        </tr>
+        <tr>
+            <th>Quantity Ordered:</th>
+            <td>{{ order.quantity_ordered }}</td>
+        </tr>
+        <tr>
+            <th>Already Produced:</th>
+            <td>{{ order.quantity_produced }}</td>
+        </tr>
+        <tr>
+            <th>Already Scrapped:</th>
+            <td>{{ order.quantity_scrapped }}</td>
+        </tr>
+        <tr class="table-active">
+            <th><strong>Remaining:</strong></th>
+            <td><strong>{{ remaining_quantity }}</strong></td>
+        </tr>
+    </table>
+</div>
+
+<div class="section">
+    <h2>Complete Production</h2>
+    <form method="POST">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label>Good Quantity Produced *</label>
+                    <input type="number" name="quantity_produced" id="quantity_produced"
+                           class="form-control" required min="0" max="{{ remaining_quantity }}"
+                           value="{{ remaining_quantity }}">
+                    <small class="text-muted">Number of good units produced</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Scrap Quantity</label>
+                    <input type="number" name="quantity_scrapped" id="quantity_scrapped"
+                           class="form-control" min="0" value="0">
+                    <small class="text-muted">Number of units scrapped/rejected</small>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label>Scrap Reason</label>
+                    <textarea name="scrap_reason" class="form-control" rows="4"
+                              placeholder="Explain why items were scrapped (if applicable)"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-info">
+            <strong>Note:</strong> Completing production will:
+            <ul>
+                <li>Create a receipt for the finished goods</li>
+                <li>Create a batch with FIFO-based cost tracking</li>
+                <li>Update inventory in the production location</li>
+                <li>Mark the production order as completed</li>
+            </ul>
+        </div>
+
+        <div class="mt-3">
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-check"></i> Complete Production
+            </button>
+            <a href="{{ url_for('production_orders.view', id=order.id) }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const producedInput = document.getElementById('quantity_produced');
+    const scrappedInput = document.getElementById('quantity_scrapped');
+    const remainingQty = {{ remaining_quantity }};
+
+    // Validate that produced + scrapped doesn't exceed remaining
+    function validateQuantities() {
+        const produced = parseInt(producedInput.value) || 0;
+        const scrapped = parseInt(scrappedInput.value) || 0;
+        const total = produced + scrapped;
+
+        if (total > remainingQty) {
+            alert(`Total produced (${produced}) + scrapped (${scrapped}) = ${total} exceeds remaining quantity (${remainingQty})`);
+            return false;
+        }
+        return true;
+    }
+
+    producedInput.addEventListener('change', validateQuantities);
+    scrappedInput.addEventListener('change', validateQuantities);
+
+    document.querySelector('form').addEventListener('submit', function(e) {
+        if (!validateQuantities()) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}

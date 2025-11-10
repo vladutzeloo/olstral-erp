@@ -45,6 +45,8 @@
             <li class="dropdown">
                 <a href="#">Production ▼</a>
                 <ul class="dropdown-menu">
+                    <li><a href="{{ url_for('production_orders.index') }}">Production Orders</a></li>
+                    <li><a href="{{ url_for('production_orders.new') }}">New Production Order</a></li>
                     <li><a href="{{ url_for('bom.index') }}">Bill of Materials</a></li>
                     <li><a href="{{ url_for('bom.new') }}">New BOM</a></li>
                 </ul>
