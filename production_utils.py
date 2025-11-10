@@ -10,8 +10,8 @@ Provides helper functions for:
 
 from datetime import datetime
 from extensions import db
-from models import ProductionOrder, ProductionConsumption, BillOfMaterials, Item, Receipt, InventoryLocation
-from batch_utils import consume_batches_fifo, create_batch, calculate_fifo_cost
+from models import ProductionOrder, ProductionConsumption, BillOfMaterials, Item, Receipt, InventoryLocation, InventoryTransaction, Location
+from batch_utils import consume_batches_fifo, create_batch, calculate_fifo_cost, get_available_batches_fifo, transfer_batch
 
 
 def start_production(production_order_id, user_id):
@@ -76,14 +76,107 @@ def start_production(production_order_id, user_id):
         raise ValueError("Production order has neither BOM nor manual components defined")
 
     try:
-        # Consume each component using FIFO
+        # Consume each component using FIFO with automatic material transfer
         for component in components_to_consume:
             required_quantity = int(component['quantity_per_unit'] * production_order.quantity_ordered)
 
             if required_quantity <= 0:
                 continue
 
-            # Consume batches using FIFO
+            # Check if materials are already at production location
+            available_at_production = InventoryLocation.query.filter_by(
+                item_id=component['item_id'],
+                location_id=production_order.location_id
+            ).first()
+
+            available_qty_at_production = available_at_production.quantity if available_at_production else 0
+
+            # If insufficient materials at production location, transfer from other locations
+            if available_qty_at_production < required_quantity:
+                shortage = required_quantity - available_qty_at_production
+
+                # Find batches in other locations (FIFO order, exclude production location)
+                all_batches = get_available_batches_fifo(
+                    item_id=component['item_id'],
+                    location_id=None  # Search all locations
+                )
+
+                # Filter out batches already at production location
+                other_location_batches = [b for b in all_batches if b.location_id != production_order.location_id]
+
+                # Transfer batches to production location
+                transferred_qty = 0
+                for batch in other_location_batches:
+                    if transferred_qty >= shortage:
+                        break
+
+                    qty_to_transfer = min(batch.quantity_available, shortage - transferred_qty)
+
+                    if qty_to_transfer > 0:
+                        # Transfer batch (or part of it) to production location
+                        transfer_batch(
+                            batch_id=batch.id,
+                            from_location_id=batch.location_id,
+                            to_location_id=production_order.location_id,
+                            quantity=qty_to_transfer,
+                            reference_type='production_transfer',
+                            reference_id=production_order.id,
+                            notes=f"Auto-transfer for production {production_order.order_number}",
+                            created_by=user_id
+                        )
+
+                        # Update inventory locations
+                        from_inv_loc = InventoryLocation.query.filter_by(
+                            item_id=component['item_id'],
+                            location_id=batch.location_id
+                        ).first()
+                        if from_inv_loc:
+                            from_inv_loc.quantity -= qty_to_transfer
+
+                        to_inv_loc = InventoryLocation.query.filter_by(
+                            item_id=component['item_id'],
+                            location_id=production_order.location_id
+                        ).first()
+                        if not to_inv_loc:
+                            to_inv_loc = InventoryLocation(
+                                item_id=component['item_id'],
+                                location_id=production_order.location_id,
+                                quantity=qty_to_transfer
+                            )
+                            db.session.add(to_inv_loc)
+                        else:
+                            to_inv_loc.quantity += qty_to_transfer
+
+                        # Create inventory transactions for traceability
+                        trans_out = InventoryTransaction(
+                            item_id=component['item_id'],
+                            location_id=batch.location_id,
+                            transaction_type='transfer',
+                            quantity=-qty_to_transfer,
+                            reference_type='production_transfer',
+                            reference_id=production_order.id,
+                            notes=f"Transfer to production: {production_order.order_number}",
+                            created_by=user_id
+                        )
+                        db.session.add(trans_out)
+
+                        trans_in = InventoryTransaction(
+                            item_id=component['item_id'],
+                            location_id=production_order.location_id,
+                            transaction_type='transfer',
+                            quantity=qty_to_transfer,
+                            reference_type='production_transfer',
+                            reference_id=production_order.id,
+                            notes=f"Received for production: {production_order.order_number}",
+                            created_by=user_id
+                        )
+                        db.session.add(trans_in)
+
+                        transferred_qty += qty_to_transfer
+
+                db.session.flush()  # Flush transfers before consumption
+
+            # Now consume batches from production location using FIFO
             consumed_batches = consume_batches_fifo(
                 item_id=component['item_id'],
                 quantity_needed=required_quantity,

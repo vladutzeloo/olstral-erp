@@ -221,31 +221,37 @@ def view(id):
                         'quantity_needed': int(comp['quantity'] * order.quantity_ordered)
                     })
 
-        # Get available batches with bin locations for each component
+        # Get available batches with bin locations for each component (from all locations)
         for component in components_to_pick:
+            # Search all locations for materials
             batches = get_available_batches_fifo(
                 item_id=component['item'].id,
-                location_id=order.location_id
+                location_id=None  # Search all locations
             )
 
-            # Group batches by bin location
-            bin_batches = {}
+            # Group batches by location and bin
+            location_bins = {}
             for batch in batches:
+                location_name = batch.location.name
                 bin_loc = batch.bin_location or 'Unassigned'
-                if bin_loc not in bin_batches:
-                    bin_batches[bin_loc] = {
+                key = f"{location_name}|{bin_loc}"
+
+                if key not in location_bins:
+                    location_bins[key] = {
+                        'location_name': location_name,
                         'bin_location': bin_loc,
                         'batches': [],
-                        'total_quantity': 0
+                        'total_quantity': 0,
+                        'is_production_location': batch.location_id == order.location_id
                     }
-                bin_batches[bin_loc]['batches'].append(batch)
-                bin_batches[bin_loc]['total_quantity'] += batch.quantity_available
+                location_bins[key]['batches'].append(batch)
+                location_bins[key]['total_quantity'] += batch.quantity_available
 
             picking_list.append({
                 'item': component['item'],
                 'quantity_needed': component['quantity_needed'],
-                'bin_batches': list(bin_batches.values()),
-                'total_available': sum(b['total_quantity'] for b in bin_batches.values())
+                'location_bins': list(location_bins.values()),
+                'total_available': sum(b['total_quantity'] for b in location_bins.values())
             })
 
     return render_template('production_orders/view.html', order=order, traceability=traceability, picking_list=picking_list)
