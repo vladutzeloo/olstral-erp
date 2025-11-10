@@ -309,26 +309,50 @@ def get_po_items(po_id):
     """API endpoint to fetch PO items for receipt creation"""
     try:
         po = PurchaseOrder.query.get_or_404(po_id)
-        items = []
 
-        for po_item in po.items:
-            remaining = po_item.quantity_ordered - po_item.quantity_received
-            items.append({
-                'item_id': po_item.item.id,
-                'sku': po_item.item.sku,
-                'name': po_item.item.name,
-                'quantity_ordered': po_item.quantity_ordered,
-                'quantity_received': po_item.quantity_received,
-                'remaining': remaining
+        # Check if PO has any items
+        if not po.items:
+            return jsonify({
+                'success': True,
+                'po_number': po.po_number,
+                'supplier': po.supplier.name if po.supplier else 'Unknown',
+                'items': []
             })
+
+        items = []
+        for po_item in po.items:
+            try:
+                # Safely access item details
+                if not po_item.item:
+                    print(f"Warning: PO item {po_item.id} has no associated item")
+                    continue
+
+                remaining = po_item.quantity_ordered - po_item.quantity_received
+
+                # Only include items that still need to be received
+                if remaining > 0:
+                    items.append({
+                        'item_id': po_item.item.id,
+                        'sku': po_item.item.sku,
+                        'name': po_item.item.name,
+                        'quantity_ordered': po_item.quantity_ordered,
+                        'quantity_received': po_item.quantity_received,
+                        'remaining': remaining
+                    })
+            except AttributeError as ae:
+                print(f"Error accessing item details for PO item {po_item.id}: {str(ae)}")
+                continue
 
         return jsonify({
             'success': True,
             'po_number': po.po_number,
-            'supplier': po.supplier.name,
+            'supplier': po.supplier.name if po.supplier else 'Unknown',
             'items': items
         })
     except Exception as e:
+        print(f"Error in get_po_items for PO {po_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
@@ -338,41 +362,63 @@ def get_po_items(po_id):
 @login_required
 def get_external_process_info(process_id):
     """Get detailed info about external process for smart reception"""
-    process = ExternalProcess.query.get_or_404(process_id)
-    
-    # Determine which item to receive
-    if process.creates_new_sku and process.returned_item_id:
-        # Transformed item - receive the new SKU
-        receive_item = process.returned_item
-        receive_item_id = process.returned_item_id
-        transformation_note = f"Originally sent: {process.item.sku} → Received: {receive_item.sku} ({process.process_result})"
-    else:
-        # Same item - receive original
-        receive_item = process.item
-        receive_item_id = process.item_id
-        transformation_note = None
-    
-    return jsonify({
-        'process_number': process.process_number,
-        'supplier_name': process.supplier.name,
-        'process_type': process.process_type,
-        'process_result': process.process_result,
-        'creates_new_sku': process.creates_new_sku,
-        'sent_item': {
-            'id': process.item_id,
-            'sku': process.item.sku,
-            'name': process.item.name
-        },
-        'receive_item': {
-            'id': receive_item_id,
-            'sku': receive_item.sku,
-            'name': receive_item.name
-        },
-        'quantity_sent': process.quantity_sent,
-        'quantity_returned': process.quantity_returned,
-        'remaining': process.quantity_sent - process.quantity_returned,
-        'transformation_note': transformation_note
-    })
+    try:
+        process = ExternalProcess.query.get_or_404(process_id)
+
+        # Safely access item and supplier
+        if not process.item:
+            return jsonify({
+                'success': False,
+                'error': 'External process has no associated item'
+            }), 400
+
+        # Determine which item to receive
+        if process.creates_new_sku and process.returned_item_id:
+            # Transformed item - receive the new SKU
+            receive_item = process.returned_item
+            if not receive_item:
+                return jsonify({
+                    'success': False,
+                    'error': 'Transformed item not found'
+                }), 400
+            receive_item_id = process.returned_item_id
+            transformation_note = f"Originally sent: {process.item.sku} → Received: {receive_item.sku} ({process.process_result})"
+        else:
+            # Same item - receive original
+            receive_item = process.item
+            receive_item_id = process.item_id
+            transformation_note = None
+
+        return jsonify({
+            'success': True,
+            'process_number': process.process_number,
+            'supplier_name': process.supplier.name if process.supplier else 'Unknown',
+            'process_type': process.process_type,
+            'process_result': process.process_result,
+            'creates_new_sku': process.creates_new_sku,
+            'sent_item': {
+                'id': process.item_id,
+                'sku': process.item.sku,
+                'name': process.item.name
+            },
+            'receive_item': {
+                'id': receive_item_id,
+                'sku': receive_item.sku,
+                'name': receive_item.name
+            },
+            'quantity_sent': process.quantity_sent,
+            'quantity_returned': process.quantity_returned,
+            'remaining': process.quantity_sent - process.quantity_returned,
+            'transformation_note': transformation_note
+        })
+    except Exception as e:
+        print(f"Error in get_external_process_info for process {process_id}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @receipts_bp.route('/<int:id>')
 @login_required
