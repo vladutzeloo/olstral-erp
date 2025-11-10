@@ -2,8 +2,9 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 from extensions import db
-from models import ExternalProcess, Supplier, Item, InventoryLocation, InventoryTransaction, Location, User
+from models import ExternalProcess, Supplier, Item, InventoryLocation, InventoryTransaction, Location, User, Batch
 from filter_utils import TableFilter
+from batch_utils import create_batch
 
 external_processes_bp = Blueprint('external_processes', __name__)
 
@@ -313,6 +314,104 @@ def get_supplier_info(supplier_id):
 def view(id):
     process = ExternalProcess.query.get_or_404(id)
     return render_template('external_processes/view.html', process=process)
+
+@external_processes_bp.route('/<int:id>/receive', methods=['GET', 'POST'])
+@login_required
+def receive(id):
+    process = ExternalProcess.query.get_or_404(id)
+
+    if request.method == 'POST':
+        try:
+            quantity_returned = int(request.form.get('quantity_returned', 0))
+            location_id = int(request.form.get('location_id'))
+
+            # Validate quantity
+            remaining = process.quantity_sent - process.quantity_returned
+            if quantity_returned <= 0 or quantity_returned > remaining:
+                flash(f'Invalid quantity. You can receive up to {remaining} items.', 'danger')
+                return redirect(url_for('external_processes.receive', id=process.id))
+
+            # Determine which item to receive (original or transformed)
+            item_id = process.returned_item_id if process.creates_new_sku and process.returned_item_id else process.item_id
+            item = Item.query.get(item_id)
+
+            if not item:
+                flash('Item not found', 'danger')
+                return redirect(url_for('external_processes.receive', id=process.id))
+
+            # Get or create inventory location
+            inv_loc = InventoryLocation.query.filter_by(
+                item_id=item_id,
+                location_id=location_id
+            ).first()
+
+            if not inv_loc:
+                inv_loc = InventoryLocation(
+                    item_id=item_id,
+                    location_id=location_id,
+                    quantity=quantity_returned
+                )
+                db.session.add(inv_loc)
+            else:
+                inv_loc.quantity += quantity_returned
+
+            # Create inventory transaction
+            transaction = InventoryTransaction(
+                item_id=item_id,
+                location_id=location_id,
+                transaction_type='process_return',
+                quantity=quantity_returned,
+                reference_type='external_process',
+                reference_id=process.id,
+                notes=f"Returned from {process.process_type}" + (f" - {process.process_result}" if process.process_result else ""),
+                created_by=current_user.id
+            )
+            db.session.add(transaction)
+
+            # Create batch for FIFO tracking
+            # Calculate cost including external process cost
+            base_cost = item.cost or 0.0
+            process_cost_per_unit = process.cost / process.quantity_sent if process.quantity_sent > 0 else 0
+            total_cost_per_unit = base_cost + process_cost_per_unit
+
+            batch = create_batch(
+                item_id=item_id,
+                receipt_id=None,
+                location_id=location_id,
+                quantity=quantity_returned,
+                batch_number=None,
+                supplier_batch_number=None,
+                po_id=None,
+                internal_order_number=None,
+                external_process_id=process.id,
+                cost_per_unit=total_cost_per_unit,
+                ownership_type='owned',
+                notes=f"Returned from external process {process.process_number}",
+                created_by=current_user.id
+            )
+
+            # Update external process
+            process.quantity_returned += quantity_returned
+            process.actual_return = datetime.utcnow()
+
+            if process.quantity_returned >= process.quantity_sent:
+                process.status = 'completed'
+            else:
+                process.status = 'in_progress'
+
+            db.session.commit()
+
+            flash(f'Successfully received {quantity_returned} items from external process {process.process_number}', 'success')
+            return redirect(url_for('external_processes.view', id=process.id))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error receiving items: {str(e)}', 'danger')
+            return redirect(url_for('external_processes.receive', id=process.id))
+
+    # GET request - show form
+    locations = Location.query.filter_by(is_active=True).all()
+    return render_template('external_processes/receive.html', process=process, locations=locations)
 
 @external_processes_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
