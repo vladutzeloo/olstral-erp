@@ -2,34 +2,47 @@ from flask import Flask
 from config import Config
 from extensions import db, login_manager
 from models import User
+import role_utils
 
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
-    
+
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
-    
+
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
-    
+
     @login_manager.unauthorized_handler
     def unauthorized():
         from flask import redirect, url_for
         return redirect(url_for('auth.login'))
-    
-    # Root route
+
+    # Make role utilities available in templates
+    @app.context_processor
+    def inject_role_utils():
+        return dict(
+            can_user=role_utils.can_user,
+            get_role_display_name=role_utils.get_role_display_name,
+            get_user_permissions=role_utils.get_user_permissions
+        )
+
+    # Root route - redirect warehouse workers to their dashboard
     @app.route('/')
     def index():
         from flask import redirect, url_for
         from flask_login import current_user
         if current_user.is_authenticated:
+            # Redirect warehouse workers to simplified dashboard
+            if current_user.role == 'warehouse_worker':
+                return redirect(url_for('warehouse.dashboard'))
             return redirect(url_for('dashboard.index'))
         return redirect(url_for('auth.login'))
-    
+
     # Register blueprints
     from routes.auth import auth_bp
     from routes.dashboard import dashboard_bp
@@ -46,9 +59,11 @@ def create_app(config_class=Config):
     from routes.stock_movements import stock_movements_bp
     from routes.batches import batches_bp
     from routes.production_orders import production_orders_bp
+    from routes.warehouse import warehouse_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(warehouse_bp, url_prefix='/warehouse')
     app.register_blueprint(items_bp, url_prefix='/items')
     app.register_blueprint(inventory_bp, url_prefix='/inventory')
     app.register_blueprint(po_bp, url_prefix='/purchase-orders')
@@ -62,11 +77,11 @@ def create_app(config_class=Config):
     app.register_blueprint(stock_movements_bp, url_prefix='/stock-movements')
     app.register_blueprint(batches_bp, url_prefix='/batches')
     app.register_blueprint(production_orders_bp, url_prefix='/production-orders')
-    
+
     # Create tables
     with app.app_context():
         db.create_all()
-        
+
         # Create default admin user if not exists
         admin = User.query.filter_by(username='admin').first()
         if not admin:
@@ -78,7 +93,19 @@ def create_app(config_class=Config):
             admin.set_password('admin123')
             db.session.add(admin)
             db.session.commit()
-    
+
+        # Create warehouse worker user if not exists
+        whm = User.query.filter_by(username='WHM').first()
+        if not whm:
+            whm = User(
+                username='WHM',
+                email='whm@warehouse.com',
+                role='warehouse_worker'
+            )
+            whm.set_password('WHM123')
+            db.session.add(whm)
+            db.session.commit()
+
     return app
 
 # Create app instance for gunicorn
