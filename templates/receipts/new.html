@@ -154,8 +154,15 @@
 </style>
 
 <script>
+// Global template row variable
+let templateRow = null;
+
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
+
+// Store the template row at the beginning so we can always clone from it
+const tbody = document.getElementById('item-rows');
+templateRow = tbody.querySelector('.item-row').cloneNode(true);
 
 // Source type change handler
 document.getElementById('source_type').addEventListener('change', function() {
@@ -305,9 +312,8 @@ document.getElementById('external_process_id').addEventListener('change', functi
 
 function addItemRow() {
     const tbody = document.getElementById('item-rows');
-    const firstRow = tbody.querySelector('.item-row');
-    const newRow = firstRow.cloneNode(true);
-    
+    const newRow = templateRow.cloneNode(true);
+
     // Clear values
     newRow.querySelectorAll('input').forEach(input => {
         if (input.type === 'number') {
@@ -316,26 +322,25 @@ function addItemRow() {
             input.value = '';
         }
     });
-    
+
     tbody.appendChild(newRow);
     attachRowHandlers(newRow);
 }
 
 function addItemRowWithData(itemId, sku, name, quantity) {
     const tbody = document.getElementById('item-rows');
-    const firstRow = tbody.querySelector('.item-row');
-    const newRow = firstRow.cloneNode(true);
-    
+    const newRow = templateRow.cloneNode(true);
+
     newRow.querySelector('.item-id-input').value = itemId;
     newRow.querySelector('.item-search').value = `${sku} - ${name}`;
     newRow.querySelector('.qty-received').value = quantity || 0;
     newRow.querySelector('.qty-scrap').value = 0;
     updateGoodQty(newRow);
-    
+
     if (tbody.children.length === 1 && !tbody.children[0].querySelector('.item-id-input').value) {
         tbody.innerHTML = '';
     }
-    
+
     tbody.appendChild(newRow);
     attachRowHandlers(newRow);
 }
@@ -442,6 +447,11 @@ document.getElementById('receiptForm').addEventListener('submit', function(e) {
         return false;
     }
 });
+
+// Expose functions globally for inline onclick handlers
+window.addItemRow = addItemRow;
+window.removeRow = removeRow;
+window.updateGoodQty = updateGoodQty;
 
 }); // End of DOMContentLoaded
 </script>
