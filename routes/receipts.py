@@ -108,6 +108,7 @@ def new():
             scrap_quantities = request.form.getlist('scrap_quantity[]')
             supplier_batch_numbers = request.form.getlist('supplier_batch_number[]')
             batch_numbers = request.form.getlist('batch_number[]')
+            bin_locations = request.form.getlist('bin_location[]')
             costs_per_unit = request.form.getlist('cost_per_unit[]')
             ownership_types = request.form.getlist('ownership_type[]')
 
@@ -125,6 +126,11 @@ def new():
                     batch_number = None
                     if idx < len(batch_numbers):
                         batch_number = batch_numbers[idx] if batch_numbers[idx] else None
+
+                    # Get bin location if provided
+                    bin_location = None
+                    if idx < len(bin_locations):
+                        bin_location = bin_locations[idx] if bin_locations[idx] else None
 
                     # Get cost per unit if provided, otherwise use item cost
                     item = Item.query.get(int(item_id))
@@ -187,6 +193,7 @@ def new():
                             quantity=good_qty,
                             batch_number=batch_number,
                             supplier_batch_number=supplier_batch_num,
+                            bin_location=bin_location,
                             po_id=int(po_id) if po_id else None,
                             internal_order_number=request.form.get('internal_order_number'),
                             external_process_id=int(external_process_id) if external_process_id else None,

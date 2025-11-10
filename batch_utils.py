@@ -23,7 +23,8 @@ def create_batch(item_id, receipt_id, location_id, quantity, **kwargs):
         location_id: Location where batch is stored
         quantity: Quantity in batch
         **kwargs: Optional fields (batch_number, supplier_batch_number, po_id, internal_order_number,
-                 external_process_id, cost_per_unit, ownership_type, expiry_date, notes, created_by)
+                 external_process_id, cost_per_unit, ownership_type, expiry_date, notes, created_by,
+                 bin_location)
 
     Returns:
         Batch: Created batch object
@@ -55,6 +56,7 @@ def create_batch(item_id, receipt_id, location_id, quantity, **kwargs):
         item_id=item_id,
         receipt_id=receipt_id,
         location_id=location_id,
+        bin_location=kwargs.get('bin_location'),
         quantity_original=quantity,
         quantity_available=quantity,
         received_date=datetime.utcnow(),
@@ -265,6 +267,7 @@ def transfer_batch(batch_id, from_location_id, to_location_id, quantity, **kwarg
             item_id=batch.item_id,
             receipt_id=batch.receipt_id,
             location_id=to_location_id,
+            bin_location=kwargs.get('to_bin_location'),  # New bin location at destination
             quantity_original=quantity,
             quantity_available=quantity,
             received_date=batch.received_date,  # Keep original received date for FIFO
@@ -274,6 +277,7 @@ def transfer_batch(batch_id, from_location_id, to_location_id, quantity, **kwarg
             internal_order_number=batch.internal_order_number,
             external_process_id=batch.external_process_id,
             cost_per_unit=batch.cost_per_unit,
+            ownership_type=batch.ownership_type,
             status='active',
             notes=f"Split from {batch.batch_number}",
             created_by=kwargs.get('created_by')

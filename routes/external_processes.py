@@ -324,6 +324,7 @@ def receive(id):
         try:
             quantity_returned = int(request.form.get('quantity_returned', 0))
             location_id = int(request.form.get('location_id'))
+            bin_location = request.form.get('bin_location', '').strip() or None
 
             # Validate quantity
             remaining = process.quantity_sent - process.quantity_returned
@@ -381,6 +382,7 @@ def receive(id):
                 quantity=quantity_returned,
                 batch_number=None,
                 supplier_batch_number=None,
+                bin_location=bin_location,
                 po_id=None,
                 internal_order_number=None,
                 external_process_id=process.id,

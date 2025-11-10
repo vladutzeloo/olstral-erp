@@ -442,6 +442,7 @@ class Batch(db.Model):
     item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
     receipt_id = db.Column(db.Integer, db.ForeignKey('receipts.id'))
     location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
+    bin_location = db.Column(db.String(50))  # Specific bin/shelf within location (e.g., "A-12-3")
 
     # Quantities
     quantity_original = db.Column(db.Integer, nullable=False)  # Original quantity received
