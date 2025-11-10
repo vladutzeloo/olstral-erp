@@ -106,19 +106,47 @@ def new():
             # Check if this creates a new SKU (transformation)
             creates_new_sku = request.form.get('creates_new_sku') == 'yes'
             returned_item_id = None
-            
+
             if creates_new_sku:
-                returned_item_id = request.form.get('returned_item_id')
-                if returned_item_id:
-                    returned_item_id = int(returned_item_id)
+                # Automatically create returned item with original name + (treatment)
+                original_item = Item.query.get(item_id)
+                if not original_item:
+                    flash('Original item not found', 'danger')
+                    return redirect(url_for('external_processes.new'))
+
+                # Generate new SKU and name
+                treatment = process_type.strip()
+                new_sku = f"{original_item.sku}-{treatment.replace(' ', '-').upper()}"
+                new_name = f"{original_item.name} ({treatment})"
+
+                # Check if item already exists
+                existing_item = Item.query.filter_by(sku=new_sku).first()
+                if existing_item:
+                    returned_item_id = existing_item.id
+                    flash(f'Using existing item: {new_sku}', 'info')
                 else:
-                    # Need to create new item for the transformed product
-                    flash('Please select or create the item that will be returned after processing', 'warning')
-                    suppliers = Supplier.query.filter_by(is_active=True, is_external_processor=True).all()
-                    items = Item.query.filter_by(is_active=True).all()
-                    locations = Location.query.filter_by(is_active=True).all()
-                    return render_template('external_processes/new.html', 
-                                         suppliers=suppliers, items=items, locations=locations)
+                    # Create new item
+                    new_item = Item(
+                        sku=new_sku,
+                        name=new_name,
+                        description=f"{original_item.description or ''} - {process_result or treatment}".strip(' -'),
+                        category_id=original_item.category_id,
+                        type_id=original_item.type_id,
+                        material_id=original_item.material_id,
+                        unit_of_measure=original_item.unit_of_measure,
+                        diameter=original_item.diameter,
+                        length=original_item.length,
+                        width=original_item.width,
+                        height=original_item.height,
+                        weight_kg=original_item.weight_kg,
+                        cost=original_item.cost,  # Initial cost, will be updated based on process cost
+                        price=original_item.price,
+                        is_active=True
+                    )
+                    db.session.add(new_item)
+                    db.session.flush()
+                    returned_item_id = new_item.id
+                    flash(f'Created new item: {new_sku} - {new_name}', 'success')
             
             # Check inventory availability
             inv_loc = InventoryLocation.query.filter_by(
