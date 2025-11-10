@@ -528,8 +528,9 @@ class ProductionOrder(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_number = db.Column(db.String(50), unique=True, nullable=False)
     finished_item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
-    bom_id = db.Column(db.Integer, db.ForeignKey('bill_of_materials.id'), nullable=False)
+    bom_id = db.Column(db.Integer, db.ForeignKey('bill_of_materials.id'))  # Nullable for manual mode
     location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
+    manual_components = db.Column(db.Text)  # JSON string for manual component list
 
     # Quantities
     quantity_ordered = db.Column(db.Integer, nullable=False)

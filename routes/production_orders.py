@@ -80,24 +80,34 @@ def new():
     """Create new production order"""
     if request.method == 'POST':
         try:
-            # Generate order number
-            last_order = ProductionOrder.query.order_by(ProductionOrder.id.desc()).first()
-            if last_order:
-                last_num = int(last_order.order_number.split('-')[-1])
-                order_number = f"PROD-{last_num + 1:06d}"
-            else:
-                order_number = "PROD-000001"
+            import json
+
+            # Get custom order number or generate one
+            order_number = request.form.get('order_number', '').strip()
+            if not order_number:
+                last_order = ProductionOrder.query.order_by(ProductionOrder.id.desc()).first()
+                if last_order:
+                    last_num = int(last_order.order_number.split('-')[-1])
+                    order_number = f"PROD-{last_num + 1:06d}"
+                else:
+                    order_number = "PROD-000001"
+
+            # Check if order number already exists
+            existing = ProductionOrder.query.filter_by(order_number=order_number).first()
+            if existing:
+                flash(f'Production order number {order_number} already exists!', 'danger')
+                return redirect(url_for('production_orders.new'))
 
             # Get form data
+            production_mode = request.form.get('production_mode')
             finished_item_id = request.form.get('finished_item_id')
-            bom_id = request.form.get('bom_id')
             quantity_ordered = int(request.form.get('quantity_ordered'))
             location_id = request.form.get('location_id')
             start_date_str = request.form.get('start_date')
             due_date_str = request.form.get('due_date')
 
             # Validate
-            if not finished_item_id or not bom_id or not quantity_ordered or not location_id:
+            if not finished_item_id or not quantity_ordered or not location_id:
                 flash('Please fill in all required fields', 'danger')
                 return redirect(url_for('production_orders.new'))
 
@@ -105,13 +115,43 @@ def new():
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d') if start_date_str else None
             due_date = datetime.strptime(due_date_str, '%Y-%m-%d') if due_date_str else None
 
+            # Handle BOM vs Manual mode
+            bom_id = None
+            manual_components_json = None
+
+            if production_mode == 'bom':
+                bom_id = request.form.get('bom_id')
+                if not bom_id:
+                    flash('Please select a BOM', 'danger')
+                    return redirect(url_for('production_orders.new'))
+                bom_id = int(bom_id)
+            else:  # manual mode
+                # Get manual components
+                component_ids = request.form.getlist('component_item_id[]')
+                component_quantities = request.form.getlist('component_quantity[]')
+
+                manual_components = []
+                for i, comp_id in enumerate(component_ids):
+                    if comp_id and component_quantities[i]:
+                        manual_components.append({
+                            'item_id': int(comp_id),
+                            'quantity': float(component_quantities[i])
+                        })
+
+                if not manual_components:
+                    flash('Please add at least one component', 'danger')
+                    return redirect(url_for('production_orders.new'))
+
+                manual_components_json = json.dumps(manual_components)
+
             # Create production order
             production_order = ProductionOrder(
                 order_number=order_number,
                 finished_item_id=int(finished_item_id),
-                bom_id=int(bom_id),
+                bom_id=bom_id,
                 location_id=int(location_id),
                 quantity_ordered=quantity_ordered,
+                manual_components=manual_components_json,
                 start_date=start_date,
                 due_date=due_date,
                 status='draft',
