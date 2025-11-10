@@ -67,10 +67,11 @@
                 <table class="table table-bordered">
                     <thead>
                         <tr>
-                            <th style="width: 40%;">Item</th>
-                            <th style="width: 15%;">Qty Received</th>
-                            <th style="width: 15%;">Qty Scrap</th>
-                            <th style="width: 20%;">Good Qty</th>
+                            <th style="width: 30%;">Item</th>
+                            <th style="width: 15%;">Supplier Batch #</th>
+                            <th style="width: 12%;">Qty Received</th>
+                            <th style="width: 12%;">Qty Scrap</th>
+                            <th style="width: 12%;">Good Qty</th>
                             <th style="width: 10%;">Action</th>
                         </tr>
                     </thead>
@@ -78,21 +79,25 @@
                         <tr class="item-row">
                             <td>
                                 <input type="hidden" name="item_id[]" class="item-id-input">
-                                <input type="text" class="form-control item-search" 
-                                       placeholder="Type SKU or name to search..." 
+                                <input type="text" class="form-control item-search"
+                                       placeholder="Type SKU or name to search..."
                                        autocomplete="off">
                                 <div class="search-results" style="display:none; position:absolute; z-index:1000; background:white; border:1px solid #ccc; max-height:200px; overflow-y:auto; width:90%;"></div>
                             </td>
                             <td>
-                                <input type="number" name="quantity[]" class="form-control qty-received" 
+                                <input type="text" name="supplier_batch_number[]" class="form-control supplier-batch"
+                                       placeholder="Optional" autocomplete="off">
+                            </td>
+                            <td>
+                                <input type="number" name="quantity[]" class="form-control qty-received"
                                        placeholder="Received" min="0" value="0">
                             </td>
                             <td>
-                                <input type="number" name="scrap_quantity[]" class="form-control qty-scrap" 
+                                <input type="number" name="scrap_quantity[]" class="form-control qty-scrap"
                                        placeholder="Scrap" min="0" value="0">
                             </td>
                             <td>
-                                <input type="number" class="form-control qty-good" 
+                                <input type="number" class="form-control qty-good"
                                        placeholder="Good" readonly style="background-color: #e9ecef;">
                             </td>
                             <td>
@@ -236,18 +241,58 @@ document.getElementById('po_id').addEventListener('change', function() {
         });
 });
 
-// External process selection handler
+// External process selection handler with AJAX
 document.getElementById('external_process_id').addEventListener('change', function() {
-    if (!this.value) return;
-    
-    const selectedOption = this.options[this.selectedIndex];
-    const itemId = selectedOption.dataset.itemId;
-    const itemSku = selectedOption.dataset.itemSku;
-    const itemName = selectedOption.dataset.itemName;
-    const remaining = selectedOption.dataset.remaining;
-    
-    clearAllRows();
-    addItemRowWithData(itemId, itemSku, itemName, remaining);
+    const processId = this.value;
+
+    if (!processId) {
+        clearAllRows();
+        addItemRow();
+        return;
+    }
+
+    console.log('Loading external process info:', processId);
+
+    // Show loading indicator
+    const originalHtml = this.parentElement.querySelector('small').innerHTML;
+    this.parentElement.querySelector('small').innerHTML = 'Loading process details...';
+
+    fetch(`/receipts/get_external_process_info/${processId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to load external process info');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('External process loaded:', data);
+
+            clearAllRows();
+
+            // Use receive_item (which handles transformation correctly)
+            addItemRowWithData(
+                data.receive_item.id,
+                data.receive_item.sku,
+                data.receive_item.name,
+                data.remaining
+            );
+
+            // Show transformation note if applicable
+            if (data.transformation_note) {
+                const noteTextarea = document.querySelector('textarea[name="notes"]');
+                noteTextarea.value = data.transformation_note;
+            }
+
+            // Restore original text
+            this.parentElement.querySelector('small').innerHTML = originalHtml;
+        })
+        .catch(error => {
+            console.error('Error loading external process:', error);
+            alert('Error loading external process details. Please try again.');
+
+            // Restore original text
+            this.parentElement.querySelector('small').innerHTML = originalHtml;
+        });
 });
 
 function addItemRow() {
