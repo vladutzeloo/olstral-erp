@@ -208,14 +208,15 @@ document.getElementById('po_id').addEventListener('change', function() {
     this.parentElement.querySelector('small').innerHTML = 'Loading items...';
 
     fetch(`/receipts/api/po_items/${poId}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Failed to load PO items');
+        .then(response => response.json().then(data => ({status: response.status, ok: response.ok, data})))
+        .then(({status, ok, data}) => {
+            console.log('PO items response:', data);
+
+            if (!ok) {
+                // Show actual error message from server
+                const errorMsg = data.error || 'Failed to load PO items';
+                throw new Error(errorMsg);
             }
-            return response.json();
-        })
-        .then(data => {
-            console.log('PO items loaded:', data);
 
             if (data.success && data.items && data.items.length > 0) {
                 clearAllRows();
@@ -228,8 +229,12 @@ document.getElementById('po_id').addEventListener('change', function() {
                         item.remaining
                     );
                 });
+            } else if (data.success && (!data.items || data.items.length === 0)) {
+                alert('No items found for this PO or all items have been fully received.');
+                clearAllRows();
+                addItemRow();
             } else {
-                alert('No items found for this PO');
+                throw new Error(data.error || 'Unknown error loading PO items');
             }
 
             // Restore original text
@@ -237,7 +242,7 @@ document.getElementById('po_id').addEventListener('change', function() {
         })
         .catch(error => {
             console.error('Error loading PO items:', error);
-            alert('Error loading PO items. Please try again later.');
+            alert(`Error loading PO items: ${error.message}`);
 
             // Restore original text
             this.parentElement.querySelector('small').innerHTML = originalHtml;
@@ -261,14 +266,14 @@ document.getElementById('external_process_id').addEventListener('change', functi
     this.parentElement.querySelector('small').innerHTML = 'Loading process details...';
 
     fetch(`/receipts/get_external_process_info/${processId}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Failed to load external process info');
+        .then(response => response.json().then(data => ({status: response.status, ok: response.ok, data})))
+        .then(({status, ok, data}) => {
+            console.log('External process response:', data);
+
+            if (!ok) {
+                const errorMsg = data.error || 'Failed to load external process info';
+                throw new Error(errorMsg);
             }
-            return response.json();
-        })
-        .then(data => {
-            console.log('External process loaded:', data);
 
             clearAllRows();
 
@@ -291,7 +296,7 @@ document.getElementById('external_process_id').addEventListener('change', functi
         })
         .catch(error => {
             console.error('Error loading external process:', error);
-            alert('Error loading external process details. Please try again.');
+            alert(`Error loading external process: ${error.message}`);
 
             // Restore original text
             this.parentElement.querySelector('small').innerHTML = originalHtml;
