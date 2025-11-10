@@ -31,6 +31,19 @@ def create_app(config_class=Config):
             get_user_permissions=role_utils.get_user_permissions
         )
 
+    # Add custom template filters
+    @app.template_filter('from_json')
+    def from_json_filter(value):
+        import json
+        if not value:
+            return []
+        return json.loads(value)
+
+    @app.template_filter('item_by_id')
+    def item_by_id_filter(item_id):
+        from models import Item
+        return Item.query.get(item_id)
+
     # Root route - redirect warehouse workers to their dashboard
     @app.route('/')
     def index():

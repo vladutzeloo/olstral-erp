@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from extensions import db
 from models import InventoryLocation, Location, Item, InventoryTransaction
@@ -192,3 +192,23 @@ def transfer():
 def transactions():
     transactions = InventoryTransaction.query.order_by(InventoryTransaction.created_at.desc()).limit(100).all()
     return render_template('inventory/transactions.html', transactions=transactions)
+
+@inventory_bp.route('/api/availability/<int:item_id>/<int:location_id>')
+@login_required
+def get_availability(item_id, location_id):
+    """API endpoint to get item availability at a specific location"""
+    inv_loc = InventoryLocation.query.filter_by(
+        item_id=item_id,
+        location_id=location_id
+    ).first()
+
+    if inv_loc:
+        return jsonify({
+            'success': True,
+            'quantity': inv_loc.quantity
+        })
+    else:
+        return jsonify({
+            'success': True,
+            'quantity': 0
+        })

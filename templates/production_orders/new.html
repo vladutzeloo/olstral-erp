@@ -8,26 +8,60 @@
         <div class="row">
             <div class="col-md-6">
                 <div class="form-group">
-                    <label>Bill of Materials (BOM) *</label>
-                    <select name="bom_id" id="bom_id" class="form-control" required>
-                        <option value="">Select BOM</option>
-                        {% for bom in boms %}
-                        <option value="{{ bom.id }}"
-                                data-finished-item="{{ bom.finished_item_id }}"
-                                data-finished-sku="{{ bom.finished_item.sku }}"
-                                data-finished-name="{{ bom.finished_item.name }}">
-                            {{ bom.bom_number }} - {{ bom.finished_item.sku }} ({{ bom.finished_item.name }})
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <small class="text-muted">Select the BOM for the item to produce</small>
+                    <label>Production Order Number *</label>
+                    <input type="text" name="order_number" id="order_number" class="form-control"
+                           placeholder="e.g., PROD-000123 or leave blank for auto-generate" maxlength="50">
+                    <small class="text-muted">Enter custom order number or leave blank to auto-generate</small>
                 </div>
 
-                <div class="form-group" id="finished_item_display" style="display:none;">
-                    <label>Finished Item</label>
-                    <input type="hidden" name="finished_item_id" id="finished_item_id">
-                    <input type="text" id="finished_item_text" class="form-control" readonly style="background-color: #e9ecef;">
+                <div class="form-group">
+                    <label>Production Mode *</label>
+                    <select name="production_mode" id="production_mode" class="form-control" required>
+                        <option value="bom">Use Bill of Materials (BOM)</option>
+                        <option value="manual">Manual Component Selection</option>
+                    </select>
+                    <small class="text-muted">Select how to define components</small>
                 </div>
+
+                <!-- BOM Mode -->
+                <div id="bom_section">
+                    <div class="form-group">
+                        <label>Bill of Materials (BOM) *</label>
+                        <select name="bom_id" id="bom_id" class="form-control">
+                            <option value="">Select BOM</option>
+                            {% for bom in boms %}
+                            <option value="{{ bom.id }}"
+                                    data-finished-item="{{ bom.finished_item_id }}"
+                                    data-finished-sku="{{ bom.finished_item.sku }}"
+                                    data-finished-name="{{ bom.finished_item.name }}">
+                                {{ bom.bom_number }} - {{ bom.finished_item.sku }} ({{ bom.finished_item.name }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Select the BOM for the item to produce</small>
+                    </div>
+
+                    <div class="form-group" id="bom_finished_item_display" style="display:none;">
+                        <label>Finished Item (from BOM)</label>
+                        <input type="text" id="bom_finished_item_text" class="form-control" readonly style="background-color: #e9ecef;">
+                    </div>
+                </div>
+
+                <!-- Manual Mode -->
+                <div id="manual_section" style="display:none;">
+                    <div class="form-group">
+                        <label>Finished Item *</label>
+                        <select name="manual_finished_item_id" id="manual_finished_item_id" class="form-control">
+                            <option value="">Select Finished Item</option>
+                            {% for item in items %}
+                            <option value="{{ item.id }}">{{ item.sku }} - {{ item.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Select the item you will produce</small>
+                    </div>
+                </div>
+
+                <input type="hidden" name="finished_item_id" id="finished_item_id">
 
                 <div class="form-group">
                     <label>Quantity to Produce *</label>
@@ -64,19 +98,71 @@
             </div>
         </div>
 
-        <div id="component_requirements" class="mt-3" style="display:none;">
-            <h3>Component Requirements</h3>
+        <!-- Manual Components Section -->
+        <div id="manual_components_section" style="display:none;">
+            <h3>Raw Materials / Components</h3>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">Raw Material / Component</th>
+                            <th style="width: 20%;">Quantity per Unit</th>
+                            <th style="width: 20%;">Total Required</th>
+                            <th style="width: 15%;">Available</th>
+                            <th style="width: 5%;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="manual_components_body">
+                        <tr class="component-row">
+                            <td>
+                                <select name="component_item_id[]" class="form-control component-select">
+                                    <option value="">Select Raw Material</option>
+                                    {% for item in items %}
+                                    <option value="{{ item.id }}" data-sku="{{ item.sku }}" data-name="{{ item.name }}">
+                                        {{ item.sku }} - {{ item.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <input type="number" name="component_quantity[]" class="form-control qty-per-unit"
+                                       min="0" step="0.01" value="1">
+                            </td>
+                            <td>
+                                <input type="number" class="form-control total-required" readonly style="background-color: #e9ecef;">
+                            </td>
+                            <td>
+                                <span class="available-qty text-muted">-</span>
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-danger btn-sm remove-component" onclick="removeComponentRow(this)">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="addComponentRow()">
+                <i class="fas fa-plus"></i> Add Component
+            </button>
+        </div>
+
+        <!-- BOM Component Requirements (read-only display) -->
+        <div id="bom_component_requirements" class="mt-3" style="display:none;">
+            <h3>Component Requirements (from BOM)</h3>
             <div class="table-responsive">
                 <table class="table table-bordered">
                     <thead>
                         <tr>
                             <th>Component</th>
-                            <th>Required Qty</th>
+                            <th>Required Qty per Unit</th>
+                            <th>Total Required</th>
                             <th>Available</th>
                             <th>Status</th>
                         </tr>
                     </thead>
-                    <tbody id="components_table">
+                    <tbody id="bom_components_table">
                     </tbody>
                 </table>
             </div>
@@ -94,17 +180,46 @@
 </div>
 
 <script>
+let componentRowTemplate = null;
+
 document.addEventListener('DOMContentLoaded', function() {
+    const productionModeSelect = document.getElementById('production_mode');
+    const bomSection = document.getElementById('bom_section');
+    const manualSection = document.getElementById('manual_section');
+    const manualComponentsSection = document.getElementById('manual_components_section');
+    const bomComponentRequirements = document.getElementById('bom_component_requirements');
     const bomSelect = document.getElementById('bom_id');
+    const manualFinishedItemSelect = document.getElementById('manual_finished_item_id');
     const quantityInput = document.getElementById('quantity_ordered');
     const locationSelect = document.getElementById('location_id');
-    const finishedItemDisplay = document.getElementById('finished_item_display');
-    const finishedItemId = document.getElementById('finished_item_id');
-    const finishedItemText = document.getElementById('finished_item_text');
-    const requirementsDiv = document.getElementById('component_requirements');
-    const componentsTable = document.getElementById('components_table');
+    const finishedItemIdInput = document.getElementById('finished_item_id');
+    const bomFinishedItemDisplay = document.getElementById('bom_finished_item_display');
+    const bomFinishedItemText = document.getElementById('bom_finished_item_text');
 
-    // When BOM is selected, show finished item and load requirements
+    // Store template for manual components
+    const tbody = document.getElementById('manual_components_body');
+    componentRowTemplate = tbody.querySelector('.component-row').cloneNode(true);
+
+    // Production mode change
+    productionModeSelect.addEventListener('change', function() {
+        if (this.value === 'bom') {
+            bomSection.style.display = 'block';
+            manualSection.style.display = 'none';
+            manualComponentsSection.style.display = 'none';
+            bomComponentRequirements.style.display = 'none';
+            bomSelect.setAttribute('required', 'required');
+            manualFinishedItemSelect.removeAttribute('required');
+        } else {
+            bomSection.style.display = 'none';
+            manualSection.style.display = 'block';
+            manualComponentsSection.style.display = 'block';
+            bomComponentRequirements.style.display = 'none';
+            bomSelect.removeAttribute('required');
+            manualFinishedItemSelect.setAttribute('required', 'required');
+        }
+    });
+
+    // BOM selection
     bomSelect.addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
 
@@ -113,28 +228,47 @@ document.addEventListener('DOMContentLoaded', function() {
             const finishedSku = selectedOption.dataset.finishedSku;
             const finishedName = selectedOption.dataset.finishedName;
 
-            finishedItemId.value = finishedItem;
-            finishedItemText.value = `${finishedSku} - ${finishedName}`;
-            finishedItemDisplay.style.display = 'block';
+            finishedItemIdInput.value = finishedItem;
+            bomFinishedItemText.value = `${finishedSku} - ${finishedName}`;
+            bomFinishedItemDisplay.style.display = 'block';
 
-            loadRequirements();
+            loadBOMRequirements();
         } else {
-            finishedItemDisplay.style.display = 'none';
-            requirementsDiv.style.display = 'none';
+            bomFinishedItemDisplay.style.display = 'none';
+            bomComponentRequirements.style.display = 'none';
+            finishedItemIdInput.value = '';
         }
     });
 
-    // Update requirements when quantity or location changes
-    quantityInput.addEventListener('change', loadRequirements);
-    locationSelect.addEventListener('change', loadRequirements);
+    // Manual finished item selection
+    manualFinishedItemSelect.addEventListener('change', function() {
+        finishedItemIdInput.value = this.value;
+    });
 
-    function loadRequirements() {
+    // Update requirements/totals when quantity or location changes
+    quantityInput.addEventListener('change', function() {
+        if (productionModeSelect.value === 'bom') {
+            loadBOMRequirements();
+        } else {
+            updateManualTotals();
+        }
+    });
+
+    locationSelect.addEventListener('change', function() {
+        if (productionModeSelect.value === 'bom') {
+            loadBOMRequirements();
+        } else {
+            updateManualAvailability();
+        }
+    });
+
+    function loadBOMRequirements() {
         const bomId = bomSelect.value;
         const quantity = quantityInput.value;
         const locationId = locationSelect.value;
 
         if (!bomId || !quantity || !locationId) {
-            requirementsDiv.style.display = 'none';
+            bomComponentRequirements.style.display = 'none';
             return;
         }
 
@@ -142,8 +276,8 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    displayRequirements(data.requirements);
-                    requirementsDiv.style.display = 'block';
+                    displayBOMRequirements(data.requirements);
+                    bomComponentRequirements.style.display = 'block';
                 } else {
                     console.error('Error loading requirements:', data.error);
                 }
@@ -153,8 +287,9 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    function displayRequirements(requirements) {
-        componentsTable.innerHTML = '';
+    function displayBOMRequirements(requirements) {
+        const table = document.getElementById('bom_components_table');
+        table.innerHTML = '';
 
         requirements.forEach(req => {
             const row = document.createElement('tr');
@@ -163,14 +298,142 @@ document.addEventListener('DOMContentLoaded', function() {
 
             row.innerHTML = `
                 <td>${req.sku} - ${req.name}</td>
+                <td>${req.required_per_unit} ${req.unit_of_measure}</td>
                 <td>${req.required_quantity} ${req.unit_of_measure}</td>
                 <td>${req.available_quantity}</td>
                 <td><span class="badge badge-${statusClass}">${statusText}</span></td>
             `;
 
-            componentsTable.appendChild(row);
+            table.appendChild(row);
         });
     }
+
+    // Manual component management
+    window.addComponentRow = function() {
+        const newRow = componentRowTemplate.cloneNode(true);
+        newRow.querySelectorAll('input').forEach(input => {
+            if (input.classList.contains('qty-per-unit')) {
+                input.value = '1';
+            } else {
+                input.value = '';
+            }
+        });
+        newRow.querySelector('select').value = '';
+        newRow.querySelector('.available-qty').textContent = '-';
+
+        tbody.appendChild(newRow);
+        attachRowHandlers(newRow);
+    };
+
+    window.removeComponentRow = function(button) {
+        const rows = tbody.querySelectorAll('.component-row');
+        if (rows.length > 1) {
+            button.closest('tr').remove();
+        } else {
+            alert('At least one component is required');
+        }
+    };
+
+    function attachRowHandlers(row) {
+        const select = row.querySelector('.component-select');
+        const qtyPerUnit = row.querySelector('.qty-per-unit');
+        const totalRequired = row.querySelector('.total-required');
+        const availableSpan = row.querySelector('.available-qty');
+
+        select.addEventListener('change', function() {
+            updateRowTotal(row);
+            checkAvailability(row);
+        });
+
+        qtyPerUnit.addEventListener('input', function() {
+            updateRowTotal(row);
+        });
+    }
+
+    function updateRowTotal(row) {
+        const qtyPerUnit = parseFloat(row.querySelector('.qty-per-unit').value) || 0;
+        const quantityOrdered = parseFloat(quantityInput.value) || 0;
+        const total = qtyPerUnit * quantityOrdered;
+        row.querySelector('.total-required').value = total.toFixed(2);
+    }
+
+    function updateManualTotals() {
+        document.querySelectorAll('.component-row').forEach(row => {
+            updateRowTotal(row);
+        });
+    }
+
+    function checkAvailability(row) {
+        const itemId = row.querySelector('.component-select').value;
+        const locationId = locationSelect.value;
+
+        if (!itemId || !locationId) {
+            row.querySelector('.available-qty').textContent = '-';
+            return;
+        }
+
+        fetch(`/inventory/api/availability/${itemId}/${locationId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const availSpan = row.querySelector('.available-qty');
+                    availSpan.textContent = data.quantity;
+
+                    const totalRequired = parseFloat(row.querySelector('.total-required').value) || 0;
+                    if (data.quantity < totalRequired) {
+                        availSpan.className = 'available-qty text-danger';
+                    } else {
+                        availSpan.className = 'available-qty text-success';
+                    }
+                } else {
+                    row.querySelector('.available-qty').textContent = '0';
+                }
+            })
+            .catch(error => {
+                console.error('Error checking availability:', error);
+            });
+    }
+
+    function updateManualAvailability() {
+        document.querySelectorAll('.component-row').forEach(row => {
+            checkAvailability(row);
+        });
+    }
+
+    // Initialize handlers for first row
+    attachRowHandlers(document.querySelector('.component-row'));
+
+    // Form validation
+    document.getElementById('productionOrderForm').addEventListener('submit', function(e) {
+        const mode = productionModeSelect.value;
+
+        if (mode === 'manual') {
+            // Validate at least one component
+            const rows = document.querySelectorAll('.component-row');
+            let hasValidComponent = false;
+
+            rows.forEach(row => {
+                const itemId = row.querySelector('.component-select').value;
+                const qty = parseFloat(row.querySelector('.qty-per-unit').value) || 0;
+
+                if (itemId && qty > 0) {
+                    hasValidComponent = true;
+                }
+            });
+
+            if (!hasValidComponent) {
+                e.preventDefault();
+                alert('Please add at least one component with quantity greater than 0');
+                return false;
+            }
+        }
+    });
 });
 </script>
+
+<style>
+.component-row td {
+    vertical-align: middle;
+}
+</style>
 {% endblock %}

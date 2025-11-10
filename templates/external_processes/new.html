@@ -116,25 +116,20 @@
             </div>
 
             <div id="returned-item-section" style="display:none;" class="mt-3">
-                <div class="alert alert-warning">
-                    <strong>Important:</strong> You need to specify which SKU will be returned after processing.
-                    This can be an existing item or you may need to create a new item first.
-                </div>
-                
-                <div class="form-group">
-                    <label>Returned Item (After Processing) *</label>
-                    <input type="hidden" name="returned_item_id" id="returned_item_id">
-                    <input type="text" id="returned_item_search" class="form-control" 
-                           placeholder="Search for the item that will be returned..." 
-                           autocomplete="off">
-                    <div id="returned-search-results" class="search-results"></div>
-                    <small class="text-muted">
-                        Search for the SKU that will be returned. 
-                        <a href="{{ url_for('items.new') }}" target="_blank">Create new item</a> if it doesn't exist yet.
-                    </small>
+                <div class="alert alert-success">
+                    <strong>Automatic Item Creation:</strong>
+                    A new item will be automatically created with the format:
+                    <ul>
+                        <li><strong>SKU:</strong> [Original SKU]-[TREATMENT]</li>
+                        <li><strong>Name:</strong> [Original Name] (Treatment)</li>
+                    </ul>
+                    If the item already exists, it will be reused.
                 </div>
 
-                <div id="transformation-preview" class="alert alert-info" style="display:none;"></div>
+                <div id="transformation-preview" class="alert alert-info" style="display:none;">
+                    <strong>Preview:</strong><br>
+                    <div id="preview-content"></div>
+                </div>
             </div>
         </div>
 
@@ -343,83 +338,42 @@ document.getElementById('item_search').addEventListener('input', function() {
     }, 300);
 });
 
-// Returned item search
-document.getElementById('returned_item_search').addEventListener('input', function() {
-    clearTimeout(searchTimeout);
-    const query = this.value.trim();
-    
-    if (query.length < 2) {
-        document.getElementById('returned-search-results').style.display = 'none';
-        return;
-    }
-    
-    searchTimeout = setTimeout(() => {
-        fetch(`/external-processes/search_all_items?q=${encodeURIComponent(query)}`)
-            .then(response => response.json())
-            .then(items => {
-                const resultsDiv = document.getElementById('returned-search-results');
-                
-                if (items.length === 0) {
-                    resultsDiv.innerHTML = '<div style="padding: 8px; color: #666;">No items found</div>';
-                    resultsDiv.style.display = 'block';
-                    return;
-                }
-                
-                resultsDiv.innerHTML = items.map(item => 
-                    `<div data-id="${item.id}" data-sku="${item.sku}" data-name="${item.name}">${item.label}</div>`
-                ).join('');
-                resultsDiv.style.display = 'block';
-                
-                resultsDiv.querySelectorAll('div').forEach(div => {
-                    div.addEventListener('click', function() {
-                        document.getElementById('returned_item_id').value = this.dataset.id;
-                        document.getElementById('returned_item_search').value = this.dataset.sku + ' - ' + this.dataset.name;
-                        selectedReturnedItem = {
-                            id: this.dataset.id,
-                            sku: this.dataset.sku,
-                            name: this.dataset.name
-                        };
-                        resultsDiv.style.display = 'none';
-                        
-                        updateTransformationPreview();
-                    });
-                });
-            });
-    }, 300);
-});
+// Process type input handler - update preview when changed
+document.getElementById('process_type').addEventListener('input', updateTransformationPreview);
+document.getElementById('process_result').addEventListener('input', updateTransformationPreview);
 
 // Creates new SKU radio buttons
 document.querySelectorAll('input[name="creates_new_sku"]').forEach(radio => {
     radio.addEventListener('change', function() {
         const returnedSection = document.getElementById('returned-item-section');
-        const transformInfo = document.getElementById('transformation-info');
-        
+
         if (this.value === 'yes') {
             returnedSection.style.display = 'block';
-            transformInfo.style.display = 'list-item';
-            document.getElementById('returned_item_id').required = true;
         } else {
             returnedSection.style.display = 'none';
-            transformInfo.style.display = 'none';
-            document.getElementById('returned_item_id').required = false;
-            document.getElementById('returned_item_id').value = '';
-            document.getElementById('returned_item_search').value = '';
-            selectedReturnedItem = null;
         }
-        
+
         updateTransformationPreview();
     });
 });
 
 function updateTransformationPreview() {
     const previewDiv = document.getElementById('transformation-preview');
+    const previewContent = document.getElementById('preview-content');
     const createsNew = document.querySelector('input[name="creates_new_sku"]:checked').value === 'yes';
-    
-    if (createsNew && selectedSentItem && selectedReturnedItem) {
-        previewDiv.innerHTML = `
-            <strong>Transformation:</strong><br>
-            <i class="fas fa-arrow-right"></i> Sending: <strong>${selectedSentItem.sku}</strong> - ${selectedSentItem.name}<br>
-            <i class="fas fa-arrow-left"></i> Receiving: <strong>${selectedReturnedItem.sku}</strong> - ${selectedReturnedItem.name}
+    const processType = document.getElementById('process_type').value.trim();
+
+    if (createsNew && selectedSentItem && processType) {
+        // Generate preview of what will be created
+        const treatment = processType.toUpperCase().replace(/\s+/g, '-');
+        const newSku = `${selectedSentItem.sku}-${treatment}`;
+        const newName = `${selectedSentItem.name} (${processType})`;
+
+        previewContent.innerHTML = `
+            <strong>Sending:</strong><br>
+            <i class="fas fa-arrow-right"></i> ${selectedSentItem.sku} - ${selectedSentItem.name}<br><br>
+            <strong>Will return as (auto-created):</strong><br>
+            <i class="fas fa-arrow-left"></i> <strong>${newSku}</strong> - ${newName}
         `;
         previewDiv.style.display = 'block';
     } else {

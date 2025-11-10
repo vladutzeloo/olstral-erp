@@ -33,6 +33,8 @@ def start_production(production_order_id, user_id):
     Raises:
         ValueError: If insufficient materials or invalid state
     """
+    import json
+
     production_order = ProductionOrder.query.get(production_order_id)
     if not production_order:
         raise ValueError(f"Production order {production_order_id} not found")
@@ -40,25 +42,50 @@ def start_production(production_order_id, user_id):
     if production_order.status not in ['draft', 'released']:
         raise ValueError(f"Cannot start production in status: {production_order.status}")
 
-    # Get BOM and components
-    bom = production_order.bom
-    if not bom or bom.status != 'active':
-        raise ValueError(f"No active BOM found for this production order")
-
     consumed_components = []
     total_material_cost = 0.0
 
+    # Determine component list (BOM or Manual)
+    components_to_consume = []
+
+    if production_order.bom_id:
+        # BOM mode
+        bom = production_order.bom
+        if not bom or bom.status != 'active':
+            raise ValueError(f"No active BOM found for this production order")
+
+        for bom_component in bom.components:
+            components_to_consume.append({
+                'item_id': bom_component.component_item_id,
+                'item': bom_component.component,
+                'quantity_per_unit': bom_component.quantity
+            })
+    elif production_order.manual_components:
+        # Manual mode
+        manual_comps = json.loads(production_order.manual_components)
+        for comp in manual_comps:
+            item = Item.query.get(comp['item_id'])
+            if not item:
+                raise ValueError(f"Component item {comp['item_id']} not found")
+            components_to_consume.append({
+                'item_id': comp['item_id'],
+                'item': item,
+                'quantity_per_unit': comp['quantity']
+            })
+    else:
+        raise ValueError("Production order has neither BOM nor manual components defined")
+
     try:
         # Consume each component using FIFO
-        for bom_component in bom.components:
-            required_quantity = int(bom_component.quantity * production_order.quantity_ordered)
+        for component in components_to_consume:
+            required_quantity = int(component['quantity_per_unit'] * production_order.quantity_ordered)
 
             if required_quantity <= 0:
                 continue
 
             # Consume batches using FIFO
             consumed_batches = consume_batches_fifo(
-                item_id=bom_component.component_item_id,
+                item_id=component['item_id'],
                 quantity_needed=required_quantity,
                 location_id=production_order.location_id,
                 reference_type='production_order',
@@ -71,7 +98,7 @@ def start_production(production_order_id, user_id):
             for batch_info in consumed_batches:
                 consumption = ProductionConsumption(
                     production_order_id=production_order.id,
-                    component_item_id=bom_component.component_item_id,
+                    component_item_id=component['item_id'],
                     batch_id=batch_info['batch_id'],
                     quantity_consumed=batch_info['quantity'],
                     cost_per_unit=batch_info['cost_per_unit'],
@@ -88,15 +115,15 @@ def start_production(production_order_id, user_id):
 
             # Update inventory
             inv_loc = InventoryLocation.query.filter_by(
-                item_id=bom_component.component_item_id,
+                item_id=component['item_id'],
                 location_id=production_order.location_id
             ).first()
             if inv_loc:
                 inv_loc.quantity -= required_quantity
 
             consumed_components.append({
-                'item': bom_component.component.name,
-                'item_sku': bom_component.component.sku,
+                'item': component['item'].name,
+                'item_sku': component['item'].sku,
                 'quantity': required_quantity,
                 'batches_consumed': len(consumed_batches),
                 'total_cost': fifo_cost['total_cost'],
