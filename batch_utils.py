@@ -22,21 +22,34 @@ def create_batch(item_id, receipt_id, location_id, quantity, **kwargs):
         receipt_id: Receipt ID that created this batch
         location_id: Location where batch is stored
         quantity: Quantity in batch
-        **kwargs: Optional fields (supplier_batch_number, po_id, internal_order_number,
-                 external_process_id, cost_per_unit, expiry_date, notes, created_by)
+        **kwargs: Optional fields (batch_number, supplier_batch_number, po_id, internal_order_number,
+                 external_process_id, cost_per_unit, ownership_type, expiry_date, notes, created_by)
 
     Returns:
         Batch: Created batch object
     """
-    # Generate batch number
-    last_batch = Batch.query.order_by(Batch.id.desc()).first()
-    if last_batch:
-        last_num = int(last_batch.batch_number.split('-')[-1])
-        batch_number = f"BATCH-{last_num + 1:06d}"
-    else:
-        batch_number = "BATCH-000001"
+    # Use provided batch number or auto-generate
+    batch_number = kwargs.get('batch_number')
+    if not batch_number:
+        # Auto-generate batch number
+        last_batch = Batch.query.order_by(Batch.id.desc()).first()
+        if last_batch:
+            # Try to extract number from last batch, handle custom batch numbers
+            try:
+                if last_batch.batch_number.startswith('BATCH-'):
+                    last_num = int(last_batch.batch_number.split('-')[-1])
+                    batch_number = f"BATCH-{last_num + 1:06d}"
+                else:
+                    # If last batch doesn't follow pattern, start from current ID
+                    batch_number = f"BATCH-{last_batch.id + 1:06d}"
+            except (ValueError, IndexError):
+                # If parsing fails, use ID-based numbering
+                batch_number = f"BATCH-{last_batch.id + 1:06d}"
+        else:
+            batch_number = "BATCH-000001"
 
     # Create batch
+    ownership_type = kwargs.get('ownership_type', 'owned')
     batch = Batch(
         batch_number=batch_number,
         item_id=item_id,
@@ -50,6 +63,7 @@ def create_batch(item_id, receipt_id, location_id, quantity, **kwargs):
         internal_order_number=kwargs.get('internal_order_number'),
         external_process_id=kwargs.get('external_process_id'),
         cost_per_unit=kwargs.get('cost_per_unit', 0.0),
+        ownership_type=ownership_type,
         expiry_date=kwargs.get('expiry_date'),
         status='active',
         notes=kwargs.get('notes'),

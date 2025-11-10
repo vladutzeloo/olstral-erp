@@ -2,7 +2,7 @@ from flask import Blueprint, render_template
 from flask_login import login_required
 from sqlalchemy import func
 from extensions import db
-from models import Item, InventoryLocation, PurchaseOrder, Shipment, ExternalProcess
+from models import Item, InventoryLocation, PurchaseOrder, Shipment, ExternalProcess, Batch
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -11,11 +11,14 @@ dashboard_bp = Blueprint('dashboard', __name__)
 def index():
     # Get total items
     total_items = Item.query.filter_by(is_active=True).count()
-    
-    # Get total inventory value
+
+    # Get total inventory value (owned batches only, excluding lohn/consignment)
     inventory_value = db.session.query(
-        func.sum(Item.cost * InventoryLocation.quantity)
-    ).join(InventoryLocation).scalar() or 0
+        func.sum(Batch.quantity_available * Batch.cost_per_unit)
+    ).filter(
+        Batch.status == 'active',
+        Batch.ownership_type == 'owned'
+    ).scalar() or 0
     
     # Get low stock items
     low_stock_items = []
