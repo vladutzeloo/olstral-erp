@@ -3,9 +3,10 @@ from flask_login import login_required, current_user
 from datetime import datetime
 from extensions import db
 from models import (Receipt, ReceiptItem, PurchaseOrder, PurchaseOrderItem, Location, Item,
-                    InventoryLocation, InventoryTransaction, ExternalProcess, Scrap, Supplier, User)
+                    InventoryLocation, InventoryTransaction, ExternalProcess, Scrap, Supplier, User, Batch)
 from filter_utils import TableFilter
 from pdf_generator import ReceiptPDF
+from batch_utils import create_batch
 
 receipts_bp = Blueprint('receipts', __name__)
 
@@ -80,14 +81,19 @@ def new():
             po_id = request.form.get('po_id')
             external_process_id = request.form.get('external_process_id')
             location_id = request.form.get('location_id')
-            
+
+            # Validate location
+            if not location_id:
+                flash('Location is required', 'danger')
+                return redirect(url_for('receipts.new'))
+
             receipt = Receipt(
                 receipt_number=receipt_number,
                 source_type=source_type,
                 po_id=int(po_id) if po_id else None,
                 external_process_id=int(external_process_id) if external_process_id else None,
                 internal_order_number=request.form.get('internal_order_number'),
-                location_id=location_id,
+                location_id=int(location_id),
                 received_date=datetime.utcnow(),
                 received_by=current_user.id,
                 notes=request.form.get('notes')
@@ -100,12 +106,18 @@ def new():
             item_ids = request.form.getlist('item_id[]')
             quantities = request.form.getlist('quantity[]')
             scrap_quantities = request.form.getlist('scrap_quantity[]')
-            
-            for item_id, qty, scrap_qty in zip(item_ids, quantities, scrap_quantities):
+            supplier_batch_numbers = request.form.getlist('supplier_batch_number[]')
+
+            for idx, (item_id, qty, scrap_qty) in enumerate(zip(item_ids, quantities, scrap_quantities)):
                 if item_id and qty and int(qty) > 0:
                     scrap_qty = int(scrap_qty) if scrap_qty else 0
                     good_qty = int(qty) - scrap_qty
-                    
+
+                    # Get supplier batch number if provided
+                    supplier_batch_num = None
+                    if idx < len(supplier_batch_numbers):
+                        supplier_batch_num = supplier_batch_numbers[idx] if supplier_batch_numbers[idx] else None
+
                     # Create receipt item
                     receipt_item = ReceiptItem(
                         receipt_id=receipt.id,
@@ -114,28 +126,28 @@ def new():
                         scrap_quantity=scrap_qty
                     )
                     db.session.add(receipt_item)
-                    
+
                     # Update inventory (only good quantity)
                     if good_qty > 0:
                         inv_loc = InventoryLocation.query.filter_by(
                             item_id=int(item_id),
-                            location_id=location_id
+                            location_id=int(location_id)
                         ).first()
-                        
+
                         if not inv_loc:
                             inv_loc = InventoryLocation(
                                 item_id=int(item_id),
-                                location_id=location_id,
+                                location_id=int(location_id),
                                 quantity=good_qty
                             )
                             db.session.add(inv_loc)
                         else:
                             inv_loc.quantity += good_qty
-                        
+
                         # Create transaction for good items
                         transaction = InventoryTransaction(
                             item_id=int(item_id),
-                            location_id=location_id,
+                            location_id=int(location_id),
                             transaction_type='receipt',
                             quantity=good_qty,
                             reference_type='receipt',
@@ -144,6 +156,22 @@ def new():
                             created_by=current_user.id
                         )
                         db.session.add(transaction)
+
+                        # Create batch for FIFO tracking
+                        item = Item.query.get(int(item_id))
+                        batch = create_batch(
+                            item_id=int(item_id),
+                            receipt_id=receipt.id,
+                            location_id=int(location_id),
+                            quantity=good_qty,
+                            supplier_batch_number=supplier_batch_num,
+                            po_id=int(po_id) if po_id else None,
+                            internal_order_number=request.form.get('internal_order_number'),
+                            external_process_id=int(external_process_id) if external_process_id else None,
+                            cost_per_unit=item.cost if item else 0.0,
+                            notes=f"Batch from {source_type}",
+                            created_by=current_user.id
+                        )
                     
                     # Handle scrap if any
                     if scrap_qty > 0:

@@ -432,3 +432,91 @@ class BOMComponent(db.Model):
     def get_total_cost(self):
         """Calculate cost for this component line"""
         return self.quantity * self.component.cost
+
+class Batch(db.Model):
+    """Track individual batches/lots of materials for FIFO inventory management"""
+    __tablename__ = 'batches'
+
+    id = db.Column(db.Integer, primary_key=True)
+    batch_number = db.Column(db.String(50), unique=True, nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
+    receipt_id = db.Column(db.Integer, db.ForeignKey('receipts.id'))
+    location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
+
+    # Quantities
+    quantity_original = db.Column(db.Integer, nullable=False)  # Original quantity received
+    quantity_available = db.Column(db.Integer, nullable=False)  # Current available quantity
+
+    # Dates for FIFO
+    received_date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    expiry_date = db.Column(db.DateTime)  # Optional expiration date
+
+    # Source tracking
+    supplier_batch_number = db.Column(db.String(100))  # Supplier's batch/lot number
+    po_id = db.Column(db.Integer, db.ForeignKey('purchase_orders.id'))
+    internal_order_number = db.Column(db.String(50))  # For production batches
+    external_process_id = db.Column(db.Integer, db.ForeignKey('external_processes.id'))
+
+    # Cost tracking (cost at time of receipt)
+    cost_per_unit = db.Column(db.Float, default=0.0)
+
+    # Status
+    status = db.Column(db.String(20), default='active')  # active, depleted, expired, quarantine
+
+    # Metadata
+    notes = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    item = db.relationship('Item', backref='batches')
+    receipt = db.relationship('Receipt', backref='batches')
+    location = db.relationship('Location', backref='batches')
+    purchase_order = db.relationship('PurchaseOrder', foreign_keys=[po_id])
+    external_process = db.relationship('ExternalProcess', foreign_keys=[external_process_id])
+    transactions = db.relationship('BatchTransaction', backref='batch', lazy=True, cascade='all, delete-orphan')
+
+    def is_expired(self):
+        """Check if batch is expired"""
+        if not self.expiry_date:
+            return False
+        return datetime.utcnow() > self.expiry_date
+
+    def is_depleted(self):
+        """Check if batch is fully consumed"""
+        return self.quantity_available <= 0
+
+    def consume(self, quantity):
+        """Consume quantity from batch (for FIFO)"""
+        if quantity > self.quantity_available:
+            raise ValueError(f"Cannot consume {quantity} from batch {self.batch_number}. Only {self.quantity_available} available.")
+        self.quantity_available -= quantity
+        if self.quantity_available == 0:
+            self.status = 'depleted'
+
+class BatchTransaction(db.Model):
+    """Audit trail for batch movements and consumption"""
+    __tablename__ = 'batch_transactions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    batch_id = db.Column(db.Integer, db.ForeignKey('batches.id'), nullable=False)
+    transaction_type = db.Column(db.String(50), nullable=False)  # receipt, consumption, shipment, adjustment, transfer, production
+    quantity = db.Column(db.Integer, nullable=False)  # + for additions, - for consumption
+
+    # Reference to source document
+    reference_type = db.Column(db.String(50))  # shipment, production_order, stock_movement, adjustment
+    reference_id = db.Column(db.Integer)
+
+    # Location tracking
+    from_location_id = db.Column(db.Integer, db.ForeignKey('locations.id'))
+    to_location_id = db.Column(db.Integer, db.ForeignKey('locations.id'))
+
+    # Metadata
+    notes = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    from_location = db.relationship('Location', foreign_keys=[from_location_id])
+    to_location = db.relationship('Location', foreign_keys=[to_location_id])

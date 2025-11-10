@@ -589,3 +589,31 @@ def new_material():
     
     series = MaterialSeries.query.all()
     return render_template('items/new_material.html', series=series)
+
+@items_bp.route('/search')
+@login_required
+def search():
+    """Universal search endpoint for items - used by autocomplete across all forms"""
+    query = request.args.get('q', '').strip()
+    if len(query) < 2:
+        return jsonify([])
+
+    # Search items by SKU or name (case-insensitive, matches anywhere)
+    items = Item.query.filter(
+        db.or_(
+            Item.sku.ilike(f'%{query}%'),
+            Item.name.ilike(f'%{query}%'),
+            Item.neo_code.ilike(f'%{query}%') if query else False
+        ),
+        Item.is_active == True
+    ).limit(20).all()
+
+    results = [{
+        'id': item.id,
+        'sku': item.sku,
+        'name': item.name,
+        'neo_code': item.neo_code,
+        'label': f"{item.sku} - {item.name}"
+    } for item in items]
+
+    return jsonify(results)

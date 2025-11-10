@@ -44,6 +44,7 @@ def create_app(config_class=Config):
     from routes.scraps import scraps_bp
     from routes.bom import bom_bp
     from routes.stock_movements import stock_movements_bp
+    from routes.batches import batches_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -58,6 +59,7 @@ def create_app(config_class=Config):
     app.register_blueprint(scraps_bp, url_prefix='/scraps')
     app.register_blueprint(bom_bp, url_prefix='/bom')
     app.register_blueprint(stock_movements_bp, url_prefix='/stock-movements')
+    app.register_blueprint(batches_bp, url_prefix='/batches')
     
     # Create tables
     with app.app_context():

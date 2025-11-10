@@ -4,6 +4,7 @@ from datetime import datetime
 from extensions import db
 from models import Shipment, ShipmentItem, Location, Item, InventoryLocation, InventoryTransaction, User, Client
 from filter_utils import TableFilter
+from batch_utils import consume_batches_fifo, calculate_fifo_cost
 
 shipments_bp = Blueprint('shipments', __name__)
 
@@ -100,9 +101,9 @@ def new():
         # Process shipment items
         item_ids = request.form.getlist('item_id[]')
         quantities = request.form.getlist('quantity[]')
-        
+
         all_items_available = True
-        
+
         for item_id, qty in zip(item_ids, quantities):
             if item_id and qty and int(qty) > 0:
                 # Check inventory
@@ -110,13 +111,13 @@ def new():
                     item_id=int(item_id),
                     location_id=from_location_id
                 ).first()
-                
+
                 if not inv_loc or inv_loc.quantity < int(qty):
                     item = Item.query.get(int(item_id))
                     flash(f'Insufficient quantity for {item.name} at selected location!', 'danger')
                     all_items_available = False
                     break
-                
+
                 # Create shipment item
                 shipment_item = ShipmentItem(
                     shipment_id=shipment.id,
@@ -124,21 +125,42 @@ def new():
                     quantity=int(qty)
                 )
                 db.session.add(shipment_item)
-                
-                # Deduct from inventory
-                inv_loc.quantity -= int(qty)
-                
-                # Create transaction
-                transaction = InventoryTransaction(
-                    item_id=int(item_id),
-                    location_id=from_location_id,
-                    transaction_type='shipment',
-                    quantity=-int(qty),
-                    reference_type='shipment',
-                    reference_id=shipment.id,
-                    created_by=current_user.id
-                )
-                db.session.add(transaction)
+
+                # Consume batches using FIFO
+                try:
+                    consumed_batches = consume_batches_fifo(
+                        item_id=int(item_id),
+                        quantity_needed=int(qty),
+                        location_id=from_location_id,
+                        reference_type='shipment',
+                        reference_id=shipment.id,
+                        notes=f"Shipment {shipment_number}",
+                        created_by=current_user.id
+                    )
+
+                    # Calculate FIFO cost
+                    fifo_cost = calculate_fifo_cost(consumed_batches)
+
+                    # Deduct from inventory
+                    inv_loc.quantity -= int(qty)
+
+                    # Create transaction with FIFO cost information
+                    transaction = InventoryTransaction(
+                        item_id=int(item_id),
+                        location_id=from_location_id,
+                        transaction_type='shipment',
+                        quantity=-int(qty),
+                        reference_type='shipment',
+                        reference_id=shipment.id,
+                        notes=f"FIFO cost: {fifo_cost['total_cost']:.2f} ({len(consumed_batches)} batches)",
+                        created_by=current_user.id
+                    )
+                    db.session.add(transaction)
+
+                except ValueError as e:
+                    flash(f'Error consuming batches: {str(e)}', 'danger')
+                    all_items_available = False
+                    break
         
         if not all_items_available:
             db.session.rollback()
