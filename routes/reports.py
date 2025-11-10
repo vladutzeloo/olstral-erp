@@ -2,7 +2,7 @@ from flask import Blueprint, render_template
 from flask_login import login_required
 from sqlalchemy import func
 from extensions import db
-from models import Item, InventoryLocation, InventoryTransaction, PurchaseOrder, Shipment, ExternalProcess
+from models import Item, InventoryLocation, InventoryTransaction, PurchaseOrder, Shipment, ExternalProcess, Batch
 
 reports_bp = Blueprint('reports', __name__)
 
@@ -14,17 +14,34 @@ def index():
 @reports_bp.route('/inventory-valuation')
 @login_required
 def inventory_valuation():
+    # Calculate inventory value based on batches (FIFO cost tracking)
+    # Only include owned batches (exclude lohn/consignment materials)
     results = db.session.query(
         Item,
-        func.sum(InventoryLocation.quantity).label('total_qty'),
-        (func.sum(InventoryLocation.quantity) * Item.cost).label('total_value')
-    ).join(InventoryLocation).group_by(Item.id).all()
-    
+        func.sum(Batch.quantity_available).label('total_qty'),
+        func.sum(Batch.quantity_available * Batch.cost_per_unit).label('total_value')
+    ).join(Batch).filter(
+        Batch.status == 'active',
+        Batch.ownership_type == 'owned'  # Exclude consignment and lohn materials
+    ).group_by(Item.id).all()
+
+    # Calculate total value (owned inventory only)
     total_value = sum(r.total_value or 0 for r in results)
-    
-    return render_template('reports/inventory_valuation.html', 
-                         results=results, 
-                         total_value=total_value)
+
+    # Also get consignment/lohn quantities for reporting (but not valued)
+    consignment_results = db.session.query(
+        Item,
+        func.sum(Batch.quantity_available).label('total_qty'),
+        Batch.ownership_type
+    ).join(Batch).filter(
+        Batch.status == 'active',
+        Batch.ownership_type.in_(['consignment', 'lohn'])
+    ).group_by(Item.id, Batch.ownership_type).all()
+
+    return render_template('reports/inventory_valuation.html',
+                         results=results,
+                         total_value=total_value,
+                         consignment_results=consignment_results)
 
 @reports_bp.route('/low-stock')
 @login_required

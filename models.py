@@ -460,6 +460,10 @@ class Batch(db.Model):
     # Cost tracking (cost at time of receipt)
     cost_per_unit = db.Column(db.Float, default=0.0)
 
+    # Ownership tracking (for consignment/lohn materials)
+    ownership_type = db.Column(db.String(20), default='owned')  # owned, consignment, lohn
+    # For consignment/lohn materials, this doesn't count toward inventory value
+
     # Status
     status = db.Column(db.String(20), default='active')  # active, depleted, expired, quarantine
 

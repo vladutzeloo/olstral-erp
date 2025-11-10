@@ -107,6 +107,9 @@ def new():
             quantities = request.form.getlist('quantity[]')
             scrap_quantities = request.form.getlist('scrap_quantity[]')
             supplier_batch_numbers = request.form.getlist('supplier_batch_number[]')
+            batch_numbers = request.form.getlist('batch_number[]')
+            costs_per_unit = request.form.getlist('cost_per_unit[]')
+            ownership_types = request.form.getlist('ownership_type[]')
 
             for idx, (item_id, qty, scrap_qty) in enumerate(zip(item_ids, quantities, scrap_quantities)):
                 if item_id and qty and int(qty) > 0:
@@ -117,6 +120,25 @@ def new():
                     supplier_batch_num = None
                     if idx < len(supplier_batch_numbers):
                         supplier_batch_num = supplier_batch_numbers[idx] if supplier_batch_numbers[idx] else None
+
+                    # Get batch number if provided
+                    batch_number = None
+                    if idx < len(batch_numbers):
+                        batch_number = batch_numbers[idx] if batch_numbers[idx] else None
+
+                    # Get cost per unit if provided, otherwise use item cost
+                    item = Item.query.get(int(item_id))
+                    cost_per_unit = item.cost if item else 0.0
+                    if idx < len(costs_per_unit) and costs_per_unit[idx]:
+                        try:
+                            cost_per_unit = float(costs_per_unit[idx])
+                        except ValueError:
+                            pass  # Keep item cost if conversion fails
+
+                    # Get ownership type
+                    ownership_type = 'owned'  # default
+                    if idx < len(ownership_types):
+                        ownership_type = ownership_types[idx] if ownership_types[idx] else 'owned'
 
                     # Create receipt item
                     receipt_item = ReceiptItem(
@@ -158,18 +180,19 @@ def new():
                         db.session.add(transaction)
 
                         # Create batch for FIFO tracking
-                        item = Item.query.get(int(item_id))
                         batch = create_batch(
                             item_id=int(item_id),
                             receipt_id=receipt.id,
                             location_id=int(location_id),
                             quantity=good_qty,
+                            batch_number=batch_number,
                             supplier_batch_number=supplier_batch_num,
                             po_id=int(po_id) if po_id else None,
                             internal_order_number=request.form.get('internal_order_number'),
                             external_process_id=int(external_process_id) if external_process_id else None,
-                            cost_per_unit=item.cost if item else 0.0,
-                            notes=f"Batch from {source_type}",
+                            cost_per_unit=cost_per_unit,
+                            ownership_type=ownership_type,
+                            notes=f"Batch from {source_type} - {ownership_type}",
                             created_by=current_user.id
                         )
                     
