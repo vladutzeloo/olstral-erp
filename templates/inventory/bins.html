@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Warehouse Bins - Inventory ERP{% endblock %}
+
+{% block content %}
+<h1>Warehouse Bins</h1>
+
+<div class="action-links">
+    <a href="{{ url_for('inventory.index') }}" class="btn btn-secondary">Back to Inventory</a>
+</div>
+
+<div class="section">
+    <form method="GET" action="{{ url_for('inventory.bins') }}" class="filter-form">
+        <div class="form-group">
+            <label for="location_id">Filter by Location:</label>
+            <select name="location_id" id="location_id" class="form-control" onchange="this.form.submit()">
+                <option value="">All Locations</option>
+                {% for location in locations %}
+                <option value="{{ location.id }}" {% if location.id == selected_location_id %}selected{% endif %}>
+                    {{ location.code }} - {{ location.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+
+    <h2>Bins Overview</h2>
+    {% if bins %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Location</th>
+                <th>Bin Location</th>
+                <th>Unique Items</th>
+                <th>Total Quantity</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bin in bins %}
+            <tr>
+                <td>{{ bin.location.code }} - {{ bin.location.name }}</td>
+                <td><strong>{{ bin.bin_location }}</strong></td>
+                <td>{{ bin.unique_items }}</td>
+                <td>{{ bin.total_quantity }}</td>
+                <td>
+                    <a href="{{ url_for('inventory.bin_details', location_id=bin.location.id, bin_location=bin.bin_location) }}"
+                       class="btn btn-sm btn-info">View Details</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">
+        <p>No bins found. Bins are automatically created when items are received with a bin location specified.</p>
+        <p>To create bins, receive items through the receiving process and specify a bin location.</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h3>About Bin Locations</h3>
+    <p>
+        Bin locations are automatically created when you receive items and specify a bin location during the receiving process.
+        Common bin naming conventions include:
+    </p>
+    <ul>
+        <li><strong>Aisle-Rack-Shelf:</strong> A-12-3 (Aisle A, Rack 12, Shelf 3)</li>
+        <li><strong>Zone-Row-Position:</strong> Z1-R5-P2 (Zone 1, Row 5, Position 2)</li>
+        <li><strong>Simple numbering:</strong> BIN-001, BIN-002, etc.</li>
+    </ul>
+    <p>
+        You can specify bin locations when:
+    </p>
+    <ul>
+        <li>Receiving items from purchase orders</li>
+        <li>Transferring inventory between locations</li>
+        <li>Moving stock within or between warehouses</li>
+    </ul>
+</div>
+{% endblock %}

@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from extensions import db
-from models import InventoryLocation, Location, Item, InventoryTransaction
+from models import InventoryLocation, Location, Item, InventoryTransaction, Batch
 from filter_utils import TableFilter
 
 inventory_bp = Blueprint('inventory', __name__)
@@ -122,67 +122,37 @@ def adjust():
 @login_required
 def transfer():
     if request.method == 'POST':
-        item_id = request.form.get('item_id')
-        from_location_id = request.form.get('from_location_id')
-        to_location_id = request.form.get('to_location_id')
-        quantity = int(request.form.get('quantity'))
+        from inventory_utils import move_stock
+
+        item_id = request.form.get('item_id', type=int)
+        from_location_id = request.form.get('from_location_id', type=int)
+        to_location_id = request.form.get('to_location_id', type=int)
+        quantity = request.form.get('quantity', type=int)
+        from_bin_location = request.form.get('from_bin_location', '').strip() or None
+        to_bin_location = request.form.get('to_bin_location', '').strip() or None
         notes = request.form.get('notes')
-        
-        # Check if source has enough quantity
-        from_inv = InventoryLocation.query.filter_by(
+
+        # Use the move_stock utility function which handles all the logic
+        success, message, movement = move_stock(
             item_id=item_id,
-            location_id=from_location_id
-        ).first()
-        
-        if not from_inv or from_inv.quantity < quantity:
-            flash('Insufficient quantity at source location!', 'danger')
-            return redirect(url_for('inventory.transfer'))
-        
-        # Deduct from source
-        from_inv.quantity -= quantity
-        
-        # Add to destination
-        to_inv = InventoryLocation.query.filter_by(
-            item_id=item_id,
-            location_id=to_location_id
-        ).first()
-        
-        if not to_inv:
-            to_inv = InventoryLocation(
-                item_id=item_id,
-                location_id=to_location_id,
-                quantity=quantity
-            )
-            db.session.add(to_inv)
-        else:
-            to_inv.quantity += quantity
-        
-        # Create transaction records
-        out_trans = InventoryTransaction(
-            item_id=item_id,
-            location_id=from_location_id,
-            transaction_type='transfer_out',
-            quantity=-quantity,
-            notes=f"Transfer to location {to_location_id}. {notes}",
-            created_by=current_user.id
-        )
-        
-        in_trans = InventoryTransaction(
-            item_id=item_id,
-            location_id=to_location_id,
-            transaction_type='transfer_in',
+            from_location_id=from_location_id,
+            to_location_id=to_location_id,
             quantity=quantity,
-            notes=f"Transfer from location {from_location_id}. {notes}",
-            created_by=current_user.id
+            moved_by=current_user.id,
+            reason='Manual Transfer',
+            notes=notes,
+            movement_type='transfer',
+            from_bin_location=from_bin_location,
+            to_bin_location=to_bin_location
         )
-        
-        db.session.add(out_trans)
-        db.session.add(in_trans)
-        db.session.commit()
-        
-        flash('Inventory transferred successfully!', 'success')
-        return redirect(url_for('inventory.index'))
-    
+
+        if success:
+            flash(f'{message}!', 'success')
+            return redirect(url_for('inventory.index'))
+        else:
+            flash(f'Transfer failed: {message}', 'danger')
+            return redirect(url_for('inventory.transfer'))
+
     items = Item.query.filter_by(is_active=True).all()
     locations = Location.query.filter_by(is_active=True).all()
     return render_template('inventory/transfer.html', items=items, locations=locations)
@@ -212,3 +182,75 @@ def get_availability(item_id, location_id):
             'success': True,
             'quantity': 0
         })
+
+@inventory_bp.route('/bins')
+@login_required
+def bins():
+    """List all warehouse bins"""
+    location_id = request.args.get('location_id', type=int)
+
+    # Get all unique bins from batches
+    query = db.session.query(
+        Batch.location_id,
+        Batch.bin_location,
+        db.func.count(db.distinct(Batch.item_id)).label('unique_items'),
+        db.func.sum(Batch.quantity_available).label('total_quantity')
+    ).filter(
+        Batch.bin_location.isnot(None),
+        Batch.quantity_available > 0,
+        Batch.status == 'active'
+    )
+
+    if location_id:
+        query = query.filter(Batch.location_id == location_id)
+
+    bins_data = query.group_by(Batch.location_id, Batch.bin_location).all()
+
+    # Format the data
+    bins = []
+    for bin_data in bins_data:
+        location = Location.query.get(bin_data.location_id)
+        bins.append({
+            'location': location,
+            'bin_location': bin_data.bin_location,
+            'unique_items': bin_data.unique_items,
+            'total_quantity': bin_data.total_quantity
+        })
+
+    locations = Location.query.filter_by(is_active=True).all()
+
+    return render_template('inventory/bins.html', bins=bins, locations=locations, selected_location_id=location_id)
+
+@inventory_bp.route('/bins/<int:location_id>/<bin_location>')
+@login_required
+def bin_details(location_id, bin_location):
+    """View details of a specific bin"""
+    location = Location.query.get_or_404(location_id)
+
+    # Get all batches in this bin
+    batches = Batch.query.filter_by(
+        location_id=location_id,
+        bin_location=bin_location,
+        status='active'
+    ).filter(
+        Batch.quantity_available > 0
+    ).order_by(Batch.received_date.asc()).all()
+
+    # Get inventory location data for items in this bin
+    items_in_bin = db.session.query(
+        Item,
+        db.func.sum(Batch.quantity_available).label('total_quantity')
+    ).join(
+        Batch, Batch.item_id == Item.id
+    ).filter(
+        Batch.location_id == location_id,
+        Batch.bin_location == bin_location,
+        Batch.status == 'active',
+        Batch.quantity_available > 0
+    ).group_by(Item.id).all()
+
+    return render_template('inventory/bin_details.html',
+                         location=location,
+                         bin_location=bin_location,
+                         batches=batches,
+                         items_in_bin=items_in_bin)

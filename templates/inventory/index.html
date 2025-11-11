@@ -10,6 +10,7 @@
     <a href="{{ url_for('inventory.adjust') }}" class="btn btn-primary">Adjust Stock</a>
     <a href="{{ url_for('inventory.transfer') }}" class="btn btn-primary">Transfer Stock</a>
     <a href="{{ url_for('inventory.locations') }}" class="btn btn-secondary">Manage Locations</a>
+    <a href="{{ url_for('inventory.bins') }}" class="btn btn-secondary">View Bins</a>
 </div>
 
 {{ render_filters(filter_config, url_for('inventory.index'), current_filters) }}

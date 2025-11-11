@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Bin {{ bin_location }} - {{ location.name }} - Inventory ERP{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Bin Details: {{ bin_location }}</h1>
+    <p class="subtitle">Location: {{ location.code }} - {{ location.name }}</p>
+</div>
+
+<div class="action-links">
+    <a href="{{ url_for('inventory.bins') }}" class="btn btn-secondary">Back to Bins</a>
+    <a href="{{ url_for('inventory.bins', location_id=location.id) }}" class="btn btn-secondary">View All Bins in {{ location.name }}</a>
+</div>
+
+<div class="section">
+    <h2>Items in this Bin</h2>
+    {% if items_in_bin %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>SKU</th>
+                <th>Item Name</th>
+                <th>Total Quantity</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item, quantity in items_in_bin %}
+            <tr>
+                <td><a href="{{ url_for('items.view', id=item.id) }}">{{ item.sku }}</a></td>
+                <td>{{ item.name }}</td>
+                <td><strong>{{ quantity }}</strong></td>
+                <td>
+                    <a href="{{ url_for('items.view', id=item.id) }}" class="btn btn-sm btn-info">View Item</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">
+        <p>No items currently in this bin.</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h2>Batches in this Bin (FIFO Order)</h2>
+    {% if batches %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Batch Number</th>
+                <th>Item</th>
+                <th>Available Qty</th>
+                <th>Original Qty</th>
+                <th>Received Date</th>
+                <th>Age (Days)</th>
+                <th>Cost/Unit</th>
+                <th>Supplier Batch</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for batch in batches %}
+            <tr>
+                <td><strong>{{ batch.batch_number }}</strong></td>
+                <td>
+                    <a href="{{ url_for('items.view', id=batch.item.id) }}">{{ batch.item.sku }}</a><br>
+                    <small>{{ batch.item.name }}</small>
+                </td>
+                <td><strong>{{ batch.quantity_available }}</strong></td>
+                <td>{{ batch.quantity_original }}</td>
+                <td>{{ batch.received_date.strftime('%Y-%m-%d') }}</td>
+                <td>{{ (now() - batch.received_date).days }}</td>
+                <td>${{ "%.2f"|format(batch.cost_per_unit) }}</td>
+                <td>{{ batch.supplier_batch_number or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">
+        <p>No active batches in this bin.</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h3>Bin Information</h3>
+    <p>This bin is tracked using the FIFO (First In, First Out) batch system. Batches are listed in order of received date, with oldest batches first.</p>
+    <p>When items are consumed from this bin, the system will automatically use the oldest batches first to ensure proper inventory rotation.</p>
+</div>
+{% endblock %}
