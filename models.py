@@ -334,6 +334,8 @@ class StockMovement(db.Model):
     item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
     from_location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
     to_location_id = db.Column(db.Integer, db.ForeignKey('locations.id'), nullable=False)
+    from_bin_location = db.Column(db.String(50))  # Source bin within location
+    to_bin_location = db.Column(db.String(50))  # Destination bin within location
     quantity = db.Column(db.Integer, nullable=False)
     movement_type = db.Column(db.String(50), default='transfer')  # transfer, relocation, rebalance
     reason = db.Column(db.String(200))  # Why the move happened
@@ -516,6 +518,8 @@ class BatchTransaction(db.Model):
     # Location tracking
     from_location_id = db.Column(db.Integer, db.ForeignKey('locations.id'))
     to_location_id = db.Column(db.Integer, db.ForeignKey('locations.id'))
+    from_bin_location = db.Column(db.String(50))  # Source bin within location
+    to_bin_location = db.Column(db.String(50))  # Destination bin within location
 
     # Metadata
     notes = db.Column(db.Text)

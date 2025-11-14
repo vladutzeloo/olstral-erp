@@ -84,6 +84,8 @@ def new():
             from_location_id = request.form.get('from_location_id', type=int)
             to_location_id = request.form.get('to_location_id', type=int)
             quantity = request.form.get('quantity', type=int)
+            from_bin_location = request.form.get('from_bin_location', '').strip() or None
+            to_bin_location = request.form.get('to_bin_location', '').strip() or None
             reason = request.form.get('reason')
             notes = request.form.get('notes')
             movement_type = request.form.get('movement_type', 'transfer')
@@ -96,7 +98,9 @@ def new():
                 moved_by=current_user.id,
                 reason=reason,
                 notes=notes,
-                movement_type=movement_type
+                movement_type=movement_type,
+                from_bin_location=from_bin_location,
+                to_bin_location=to_bin_location
             )
 
             if success:

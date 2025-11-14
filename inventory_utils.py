@@ -9,7 +9,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 
 def move_stock(item_id, from_location_id, to_location_id, quantity,
-               moved_by, reason=None, notes=None, movement_type='transfer'):
+               moved_by, reason=None, notes=None, movement_type='transfer',
+               from_bin_location=None, to_bin_location=None):
     """
     Move stock from one location to another with full traceability.
 
@@ -22,6 +23,8 @@ def move_stock(item_id, from_location_id, to_location_id, quantity,
         reason: Reason for the move (optional)
         notes: Additional notes (optional)
         movement_type: Type of movement (transfer, relocation, rebalance)
+        from_bin_location: Source bin location within the from_location (optional)
+        to_bin_location: Destination bin location within the to_location (optional)
 
     Returns:
         tuple: (success: bool, message: str, movement: StockMovement or None)
@@ -72,6 +75,8 @@ def move_stock(item_id, from_location_id, to_location_id, quantity,
             item_id=item_id,
             from_location_id=from_location_id,
             to_location_id=to_location_id,
+            from_bin_location=from_bin_location,
+            to_bin_location=to_bin_location,
             quantity=quantity,
             movement_type=movement_type,
             reason=reason,
@@ -87,6 +92,10 @@ def move_stock(item_id, from_location_id, to_location_id, quantity,
         to_inv.quantity += quantity
         from_inv.updated_at = datetime.utcnow()
         to_inv.updated_at = datetime.utcnow()
+
+        # Update bin locations if provided
+        if to_bin_location:
+            to_inv.bin_location = to_bin_location
 
         # Create inventory transactions for audit trail
         # Deduction from source
